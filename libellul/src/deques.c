@@ -73,7 +73,7 @@ void      deque_addback( deque_t *deque, link_t *link ){
 
 
 void delete_front(deque_t *deque){
-    assert (deque != NULL && deque->head.next != NULL) 
+    assert (deque != NULL && deque->head.next != NULL);
        
 
     link_t* first = deque->head.next;

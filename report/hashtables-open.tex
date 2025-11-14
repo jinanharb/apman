@@ -1,0 +1,32 @@
+\chapter{Hashtables: Open addressing}\label{chap:hashtables:open}
+
+Starting from the home slot, open addressing relies on managing collisions by looking at the next slots until one is empty. This implies that removals must be managed with special care: one easy fix is to use \textit{tombstones} (like for a slot being empty, this is a special marker that says ``something was there and removed'') so all paths to other entries from their corresponding home slot keep the same. Numerous removals will introduce as much tombstones and pollute the table up to the point where it may become unusable and rehashing to a new table becomes necessary (computing the load factor must take tombstones into account).
+
+If the hashtable is expected to incur a lot of removals interspersed with insertions, tombstones may either be reused or even be avoided completely. Reusing tombstones is not always possible but it still triggers rehashing less often. To avoid tombstones completely, one uses a socalled backward-shift deletion procedure (removals take slightly longer time due to moving entries around in the table so no tombstones are needed).
+
+Choosing the next candidate slot to be inspected is called \textit{probing} and it may be done in a few different ways, with the goal of reducing clustering in the table. The easiest probing strategy is to look at the very next slot (linear probing). Quadratic probing is also possible but it takes additional care with respect to the table size to ensure it terminates. One may also add some randomness from the hash itself so the first slots are probed at random, switching back to linear probing when the hash randomness has been exhausted (early Python dictionaries used this nifty trick), \textit{etc.}
+
+One design of particular interest not only will move slot contents during backward-shift deletion, but also during insertion so as to ensure that all key/value pairs are closest on average to their home slot. It is called Robin-Hood hashing~\cite{celis:robin:hood}\cite{pg:robin:hood}. It only requires adding one integer in the key/value pair metadata and it is regarded as leading to some of the fastest hashtable implementations out there. 
+
+In addition to the core design decisions above, a \textit{lot} a smaller variants may be devised for open addressing regarding implementation details:
+\begin{itemize}
+\item Prime numbers are an excellent default choice for the table size, as the modulo over a prime number will scatter hashes more uniformly on the table slots (thus combatting primary clustering);
+\item Modulo operations (\texttt{\%}) may be replaced by faster And operations (\texttt{\&}) in the special case of a table with power-of-two size, and many other similar arithmetic tricks may be leveraged to avoid modulos~\cite{skarupke:fibonacci}\cite{lemire:modulo:alternative}\cite{neumann:all:sizes};
+\item A good rule of thumb is to have only but a few possible hashtable sizes, with powers-of-two being a popular choice (how would you mix that with prime numbers? and wasn't it a good idea to also have dynamic arrays of \texttt{strict} length?);
+\item Slots for key/value pairs may be engineered to store additional relevant information (this is required to Robin Hood hashing): one may imagine also storing the key hash so no call to the hash function is needed upon rehashing, only adapting to the new table size (with modulos or other fancy arithmetics);
+\item Critical code paths may be optimized: some hashtables~\cite{jackson:verstable} will even determine that a key is not present by testing a single bit in the home slot metadata! A key that is present however will incur longer search times (not only because of calling the equality function);
+\item Similarly, storing a subset of the hash bits close to the key will allow very much less calls to the equality function in case the key is to be found in the table.
+\end{itemize}
+
+In your benchmark, you will end up chasing nanoseconds: each and every operation counts! A carefully designed hashtable with millions of keys may typically terminate a \texttt{get} primitive in a dozen nanoseconds, and in less that a (couple) nanosecond(s) on tables of several tens of thousand entries (assuming the setting described in Chap.~\ref{chap:map:benchmark}). 
+
+Remove these paragraphs when you are done!
+
+\section{Design rationale}
+
+\section{Example variant: Tombstone reuse}
+
+\section{Example variant: Backward-shift deletion (no tombstones)}
+
+\section{Example variant: Robin-Hood hashing + Backward-shift deletion}
+

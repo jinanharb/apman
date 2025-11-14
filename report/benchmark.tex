@@ -1,0 +1,69 @@
+\chapter{Benchmark design}\label{chap:map:benchmark}
+
+\section*{Considerations on fairness}
+
+As your online wanderings have certainly revealed, every single person on Earth who designs their new hashtable also writes the corresponding benchmark. Benchmarks are to computer engineering what polls are to politics: not only it is a difficult area if done properly, but it is tempting to engineer the question so the expected answer comes out more often. Here are some guidelines for benchmarking your maps.
+
+You shall benchmark maps with random \texttt{uint64\_t} keys and values (the size of a pointer on 64-bit machines). Hash-based implementation will not hash keys during benchmarking (as if keys were their own hash values). Then you still have the expected random properties of hashing, but the benchmark will evaluate the raw implementation performance of your map independently of the cost of the actual hashing function. 
+
+In your benchmark for random \texttt{uint64\_t} keys, you typically want to be able to use a hashtable like in Code~\ref{code:map:example} below.
+
+\begin{code}
+  \begin{lstlisting}[style=C]
+/* Set parameter values for the map implementation code! */
+#define MAP_TAG         mymap           /* map namespace */
+#define MAP_KEY_T       uint64_t
+#define MAP_VALUE_T     uint64_t
+
+static  inline uint64_t identity_nohash ( MAP_KEY_T key ) { return key; }
+#define HASH_FUN        identity_nohash
+
+static  inline int      equality ( MAP_KEY_T left, MAP_KEY_T right ) { return left == right; }
+#define EQ_FUN          equality
+
+#define MAP_IMPL        HASHTABLE_ROBIN_HOOD /* Explicit variant being benchmarked */
+
+#include <libellul/type/map.h> /* Instantiate map code */
+
+int main () { /* Now using a map for benchmarking */
+  uint64_t key = 42;
+  mymap_t dict = mymap();
+
+  mymap_push( &dict, key, 21 ); /* Coding rule on & is overkill here! */
+
+  mymap_delete( &dict );
+}
+  \end{lstlisting}
+  \caption{Instantiating and using a generic map with code templating.}
+  \label{code:map:example}
+\end{code}
+
+You should spend some time understanding why proceeding like this is likely to be the fastest (yet generic!) code you may get in C: have a look at the interplay of the preprocessor symbols (as used in the instantiated map code) with \texttt{static inline} qualifiers. The curious reader will disassemble the executable and contemplate that the compiler has managed to completely remove the cost of our dummy hashing and equality functions. That makes our benchmark fair regarding the choice of the hashing function (we use none!), but it requires that we generate random \texttt{uint64\_t}'s for the keys.
+
+To do so, and to allow for efficient and clever test/benchmark designs, one may compute a socalled Fisher-Yates permutation of the first \texttt{uint64\_t} integers in an array. Interesting variations include performing the Fisher-Yates permutation only on the first half of this array of integers (so you may store and retrieve the first half, and use the second half for testing/benchmarking the time taken to lookup absent keys), \textit{etc.}
+
+The rest pretty much revolves around designing a few \texttt{for} loops to properly construct your CSV benchmark output. Code-templating the benchmark itself is pretty easy, as the only parameter of a benchmark is the \texttt{MAP\_IMPL} symbol. Everything above and below this \texttt{\#define} is constant syntax that can be put in separate files to be included to generate the code for each different implementation (2 lines per actual benchmark instantiation).
+
+One last important advice. Benchmarks will stress your data structures with millions of random values. Take this opportunity to actually check the correct output of the \texttt{get} primitive. That will greatly help finding all remaining bugs your unitary tests did not catch because you were not paranoid enough when writing them.
+
+\section*{Measuring memory usage: even more syntactic fun on the horizon!}
+
+Data structure performances should be measured in time and memory. As for measuring time, we provide you with the \texttt{clock} module. But measuring memory usage is surprisingly trickier than expected. 
+
+When you do a \texttt{malloc(3)}, you only tell the system that you \textit{may} have to use that much bytes you are asking for. This is called memory reservation. The system will guarantee that there will be actually some \textit{allocated} memory on time (first read/write in the block returned by \texttt{malloc(3)}) when your code accesses a (sub)block of memory that was reserved. Memory reservation is not memory allocation: if you have reserved a very big memory block but you only use the first bytes of it, then the amount of memory that will be actually allocated (and used in practice by your code) will be much less than what you asked upon reservation (which is an upper bound on the former). Such discrepancies may appear when large subblocks (called pages) of the reserved memory are not used. 
+
+It is possible to ask the system to monitor the maximum quantity of memory (in KiB) that was actually used by a running code (see \texttt{time(1)}, ``maximum resident set size'').
+
+Yet, for all of the above and the following argument, we shall monitor the memory that our code reserves. We acknowledge that it will be an upper bound on the memory that will actually be allocated (but it should be easier to track down to theoretical derivations). Our last argument is as follows: should you pursue this work for any reason, your next step quite likely would imply playing with custom memory management, as arena-based memory management definitely rocks!
+
+Another, simpler use case for memory allocation wrappers is to add some \texttt{fprintf(3)} to trace your allocations in debug mode. This should not be overlooked.
+
+Hence, we prepare the ground by catching all calls to the allocator with (at the moment) dummy wrappers in \texttt{libellul/src/memory.c}. After adding a few global variables, you will then be able to monitor the number of blocks or the (maximum) quantity of reserved memory programmatically, at any time you like. Your tests may then even check that all blocks were freed upon exiting! As a consequence, your code should \textit{never} use directly \texttt{malloc(3)} and friends, only the wrapper functions in \texttt{libellul/src/memory.h}: \texttt{allocate()} and \texttt{dispose()} (you may of course add a \texttt{reallocate()} wrapper around \texttt{realloc(3)} if you want). 
+
+Additionally, wrappers for dynamic memory allocation also allow for nifty tricks if they are used to transparently manage a hidden header for the metadata of the allocated block:
+\begin{itemize}
+\item You may store a function pointer in the block hidden header to be called for proper deletion: either a call to \texttt{dispose()} for raw blocks or to a data structure destructor. You may then easily wrap and replace all your calls to \texttt{dispose()}, \texttt{array\_delete()}, \texttt{list\_delete()}, \texttt{hashtable\_delete()} and friends with a single über-generic \texttt{delete()} function/macro to delete anything in one easy sweep, provided you have no pointer loops!
+\item Extending on the above, hiding the address of a structure that not only contains the function pointer for proper deletion, but also others for printing, serializing or any task you like, comes pretty close to implementing a socalled \textit{virtual function table} in object-oriented programming slang---so you get über-generic function-like calls to \texttt{print()}, \texttt{serialize()}, \textit{etc.} for any abstract data type in C as well: together with constructors, iterators and generators, C starts to resemble your preferred scripting language---yet on steroids.
+\end{itemize}
+
+Remove these paragraphs when you are done!

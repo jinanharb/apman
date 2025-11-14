@@ -1,0 +1,39 @@
+\chapter{Arrays}\label{chap:arrays}
+
+This one is an almost complete example to get you started: you will get less and less information along the following chapters, so you will have to find it yourself. We provide design rationale from which an interface is deduced, and we provide a few tests too. Only the implementation is missing (that's three functions to write). Building on this to add support for sorted arrays is quite straightforward (it's basically about adding a function pointer in the header for a comparison callback using \texttt{void*} addresses, \textit{cf.} generic pointers, with \texttt{NULL} indicating an unsorted array). Finally, you may want to assume that the average array will be small (typically less than 8 slots) and have that as the minimal allocated size (small arrays only ever incur one call to the allocator and larger arrays spare numerous calls from small values).
+
+We consider dynamic, possibly variable-length arrays. Arrays have one distinctive feature that is not shared by other data structures: the C language has a builtin syntax for them, and we should keep compatibility because it carries the type information for array slots and a user certainly expects to be able to use the native C syntax on arrays. So there is no need for a \texttt{typedef} here, only to know the size (in bytes) of an array slot. For instance, we support the following example user code for array construction:
+\begin{lstlisting}[style=C]
+int *foo = array( int );
+\end{lstlisting}
+
+First, this advocates to use genericity by hidden metadata to store all relevant information for the variable-length array in a header. One such piece of information is obviously the current length of the array. Second, all implementation code is independent from the array slot type name so it is moved to \texttt{libellul/src/array.c}. 
+
+Also, the user always knows in advance whether that particular array should have variable (default) or fixed (\texttt{strict}) size. The user may or may not know in advance an estimate of the length of a variable-length array (if it is unknown, we assume it is \texttt{0}). Dedicated macros are provided around the main array constructor function. 
+
+The critical issue for variable-length arrays is calling the memory allocator, which is a costly operation. Avoiding to call the allocator on each and every insertion requires a different trade-off, that relies on always allocating \texttt{ARRAY\_ALLOC\_GEOM} times more bytes than required (typically x1.3). This is called amortized allocation and it requires to store the true length of the allocated memory in the array header. The array only gets reallocated when the current size exceeds the allocated size.
+
+Similarly, a shrinking variable-length array gets reallocated to save memory when its current length is typically half that of the allocated length. Popping the last element of a variable-length array does not trigger deletion of the array so an explicit deletion is always needed. 
+
+Pushing (popping) elements in a variable-length array may be implemented as macros so that we support the following syntax for the user code:
+
+\begin{lstlisting}[style=C]
+  array_push( &foo, 42 );
+
+  array_pop( &foo );
+
+  array_delete( &foo );
+\end{lstlisting}
+
+All these constructs imply a possible modification of the array address so we have to work on its address (see our coding rules in the introduction). That is, we have to take the address of an address in \texttt{array\_resize\_\_}. The rest of the interface below is self-explanatory. 
+
+Remove these paragraphs when you are done!
+
+\section{Design rationale}
+
+\section{Array interface}\label{arrays:interface}
+
+\begin{code}
+  \lstinputlisting[style=C,linerange={6-22}]{libellul/include/libellul/type/array.h}
+  \caption{Interface for (possibly variable-length) arrays.}
+\end{code}

@@ -1,0 +1,11 @@
+\chapter{Hashtries}\label{chap:hashtries}
+
+Tries are $N$-way search tree structures ($2\leq N \leq 256$ typically), in which successive letters of the key are used to select the next subtree to be probed for the key. But what if a key is not a string and it has no letters? Hashtries use successive bits of the key hash as a proxy for the inexistent next letter of the key in a trie (more likely with $2\leq N \leq 8$ this time). 
+
+For one beautiful example, see~\cite{wellons:hashtree} (do not pay attention to the arena stuff). The two important points you want to understand are (1) how collisions are handled (deceptively brilliant!), and (2) how removals may be handled. Since it is a recursive structure, genericity by intrusiveness is the way to go.
+
+Remove these paragraphs when you are done!
+
+\section{Design rationale}
+
+

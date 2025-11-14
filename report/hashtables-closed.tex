@@ -1,0 +1,12 @@
+\chapter{Hashtables: Closed addressing}\label{chap:hashtables:closed}
+
+Everyone loves closed addressing hashtables because they are so simple: collisions are handled by using a linear container to store key/value pairs, generally a list. Use this opportunity to reuse your lists and make sure you are able to preserve insertion order. 
+
+To the best of our knowledge, the only significant variant for closed addressing is called Move-to-Front. The underlying, realistic hypothesis in practice is that the same key is tested several times in a row. Upon each successful lookup of a key, it is moved to the front of the collision list it belongs to. The next time the same key is looked up, it will be much closer to the start of the list and faster query times are expected. 
+
+Remove these paragraphs when you are done!
+
+\section{Design rationale}
+
+\section{Example variant: Move-to-Front}
+

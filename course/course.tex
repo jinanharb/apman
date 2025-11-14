@@ -1,0 +1,61 @@
+\documentclass[a4paper,notitlepage]{report}
+
+\newcommand{\authorOne}   {Fran\c cois \textsc{Cayre}}
+
+\input{report/preamble.tex}
+
+%======================== DEBUT DU DOCUMENT ========================
+
+\begin{document}
+
+\author{\authorOne}
+\title{Phelma {SEOC} 2A {APMAN} Course handout}
+
+\hypersetup{pageanchor=false}
+\begin{titlepage}
+  \maketitle
+
+  \begin{abstract}
+    This course introduces some useful programming techniques in C that
+    are applied to build a library of reusable data structures.
+
+    Code testing and benchmarking are expected to be two important parts
+    of your work.
+
+    This document has been designed to fill the gap between C you wrote
+    when you were a child (last week), and C as it is written by the
+    adults in the room.
+
+    \textit{Note on LLMs}: Use them to understand code, not to write it
+    for you. Use them also to help you when reading the references in
+    the bibliography---in any case, these references and the material in
+    this document set the bar of the expected technical depth of your
+    report. The deepest your technical understanding of what you are
+    doing, the best you will be able to make out of LLMs: toddlers and
+    grown-ups rarely ask the same questions and at best they only obtain
+    answers they may understand. 
+  \end{abstract}
+
+\end{titlepage}
+\hypersetup{pageanchor=true}
+
+\tableofcontents
+
+\listoffigures
+\listof{code}{List of Codes}
+
+%====================== INCLUSION DES PARTIES ======================
+
+\input{course/introduction.tex}
+
+\input{course/idioms.tex}
+
+\input{course/genericity.tex}
+
+\input{course/iterators.tex}
+
+\input{course/bootstrap.tex}
+
+\printbibliography
+
+\end{document}

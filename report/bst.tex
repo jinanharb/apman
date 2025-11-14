@@ -1,0 +1,22 @@
+\chapter{Binary search trees}\label{chap:binary:search:trees}
+
+Binary search trees store lower (\textit{resp.} higher) keys than the root in the left (\textit{resp.} right) subtree. Searches therefore are expected to occur with logarithmic time complexity and implementation is pretty straightforward. These structures natively allow duplicate entries so be careful when using them for implementing maps.
+
+The main issue with binary search trees is to keep them as balanced as possible so that searches keep as logarithmic as possible (even in the case of worst-case, degenerate entries). One (complicated) method known as Red-Black trees will ensure balanced trees at all times with hard worst-case time guarantees.
+
+One slightly less complicated and even more beautiful structure is called Splay trees. In addition to removals, Splay trees also get modified during lookups, thereby implementing a form of Move-to-Front optimization like in Chap.~\ref{chap:hashtables:closed}. Since the root of a Splay tree actually \textit{moves} during searches, you definitely need a header for your tree data structures to enforce our coding rules---they are more tedious to get right than the treaps below.
+
+A treap builds a heap structure on top of a binary search tree (hence the portemanteau in the name). This is called a Cartesian tree~\cite{ACP:treaps} and it uses hashing to implement randomized, balanced search trees (the hash provides the required source of randomness). It is obviously a beautiful data structure, yet certainly it cannot be the first you implement---more likely the second!
+
+One other great variant that must be mentioned is called B-trees, which minimize the amount of data to be moved around during insertions/removals: this is particularly well suited for large, offline databases (on disk, like for implementing a filesystem!) B-trees are arguably the trickiest of the four to get to work and, given their focus on out-of-core databases, the need for generic B-trees is quite unlikely.
+
+Remove these paragraphs when you're done!
+
+\section{Design rationale}
+
+\section{Binary search tree interface}
+
+\section{Example variant: Treaps}
+
+\section{Example variant: Splay trees}
+

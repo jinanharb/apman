@@ -1,0 +1,151 @@
+\chapter{Code bootstrap}\label{chap:bootstrap}
+
+This chapter is a quick visit of the code you have just downloaded. Specific information regarding data structures are in the \texttt{report/*.tex} skeleton. 
+
+You are expected to take some time to make sure / understand how your working environment works, including the bootstrap. Numerous examples are provided that you can easily duplicate, tweak and learn from. 
+
+First thing first: the \texttt{Makefile} expects that you work from the project root directory it is in. Always stay in this root directory. 
+
+The \texttt{Makefile} uses a number of options for the C compiler. Some of them turn the most dangerous warnings into plain compilation errors. There is empirical evidence that doing so starts to improve your coding skills in the first few hours of practice. Plus, this will also save you a considerable amount of nasty segfaults.
+
+\section{Testing: \texttt{make tests}}
+
+Testing code is fundamental and extremely handy for several reasons:
+\begin{itemize}
+\item Regularly running tests allows early detection of new bugs (preventing \textit{code regression});
+\item The source code of the tests may serve as an \textit{automatically up-to-date reference for your code};
+\item Testing may (should!) be code-templated so \textit{different implementations are validated against the very same testing procedure}.
+\end{itemize}
+
+Testing code is difficult for several reasons:
+\begin{enumerate}
+\item In general, it is not possible to test all code (to have complete \textit{code coverage});
+\item Not only do you want to test correct code (\textit{positive tests}), but also incorrect code (\textit{negative tests});
+\item Some tests have to ensure that the code under test actually aborts in certain circumstances, and continue testing nevertheless (you may lack knowledge in system programming to do that);
+\item Writing good tests requires great skills in paranoia.
+\end{enumerate}
+
+As for the first point, we are quite lucky: data structures are mathematical objects that do not have many parameters (except maybe for performance tuning but this is related to benchmarking). It is therefore expected that your tests will achieve (near) complete code coverage. 
+
+The second and third points are the main reason we provide you with a testing environment.
+
+The last point may be mitigated by having one person writing the tests and another in charge of the implementation. The two only have to agree on the interface beforehand. Tests are written first and then passed to the implementation developer. An implementation is deemed working when all tests pass. 
+
+Tests should be located in \texttt{libellul/test/props} (we are testing the properties of our data structures). Unused tests should be moved to another directory, as \texttt{make tests} will compile everything in \texttt{libellul/test/props}.
+
+Tests are compiled with a debug version of the library code, which is instrumented by \texttt{AddressSanitizer} as a more integrated replacement for \texttt{valgrind} (memory leaks are not checked if running from a debugger). Both are uncompatible so you have to set \texttt{USE\_ASAN=no} in the \texttt{Makefile} if you do want to switch to \texttt{valgrind}.
+
+Tests compilation \textit{and execution} are triggered with \texttt{make checks}. The output is the list of properties that your code actually verifies.
+
+Most features of the testing environment are documented in \texttt{libellul/test/howto} with numerous expected failures upon typing \texttt{make tests-howto} (due to illustrating tests that do not pass). This testing howto is not expected to run inside a debugger. Sketchy code templating for testing is also outlined. 
+
+Regarding code templating specifically, you may want/need to check the preprocessor output only. Tests in \texttt{libellul/test/prepr} are not supposed to use the testing environment we provide, they are only used as a stratchpad for you to play with the preprocessor and examine its output. These tests are triggered with \texttt{make prepr-tests}, the resulting files are in the same directory and have the \texttt{.prepr} extension.
+
+\section{Benchmarking: \texttt{make benchmarks}}
+
+A benchmark is a C program in \texttt{libellul/bench/} that will generate data (often timings) in text format, from which plots are made: each \texttt{benchmark/foo.c} benchmark must also have one associated \texttt{benchmark/foo.plt} \href{https://riptutorial.com/gnuplot}{Gnuplot} script.\footnote{You are free to write your own Python scripts to use \texttt{matplotlib} instead.}
+
+Compilation and execution of the benchmarks is triggered with \texttt{make benchmarks}.
+
+\subsubsection{Mechanism for benchmarks in the \texttt{Makefile}}
+
+The benchmark output should be in CSV format: the \texttt{Makefile} will automatically save it as \texttt{bench/foo.csv}, which is then used by \texttt{bench/foo.plt}.
+
+CSV (Comma-Separated Values) is a text format where data columns are separated by an arbitrary character, which is expected to be a comma by default. Check \texttt{bench/00-dummy.c} to see how \texttt{printf()}'s are used to output values of interest separated by commas. 
+
+\subsubsection{Mechanism for plots in the \texttt{Makefile}}
+
+Each \texttt{bench/foo.plt} may produce as much plots as needed from one \texttt{bench/foo.csv} file (that may have as many lines and columns as needed).
+
+For instance, \texttt{bench/00-dummy.plt} will produce \texttt{bench/first.png} and \texttt{bench/second.png}.
+
+
+\section{Reporting: \texttt{make report}}
+
+This section shows how simulations and code may be handled for inclusion in your report. We assume you want to live the \LaTeX{} way, although it is perfectly acceptable to write your report as Markdown files in your repository (the reason we generate PNG plots instead of PDF).
+
+\subsection{Including code excerpts}
+
+You may include any several parts of your own fancy code (compared to~\cite{ritchie:1988}) and reference it like is done for Code~\ref{code:ref}. Automatically referencing lines of code is tedious, so do it by hand if you need it. 
+
+\begin{code}
+  \lstinputlisting[style=C,linerange={1-3,23-24}]{libellul/include/libellul/type/array.h}
+  \caption{Excerpt showing how feature X is implemented (X=C guard).}\label{code:ref}
+\end{code}
+
+
+\subsection{Including a simulation plot}
+
+The overall operation is rather straightforward and should suffice for most uses. Of course, you are free to tweak the whole thing if you feel like it. Here is how to include a simulation plot that was produced with \texttt{make benchmarks}:
+
+\begin{figure}[H]
+  \includegraphics[width=\textwidth]{first}
+\caption{Description and salient features for the reader to observe.\label{fig:simu}}
+\end{figure}
+
+Then comes the commentary of Fig.~\ref{fig:simu}.
+
+Observe that only the figure basename is needed (\textit{e.g.} \texttt{first}) in the \LaTeX{} code above. This is because common extensions (including \texttt{.png}) are automatically tested and we added \texttt{bench/} to the list of directories containing plots:
+
+\lstinputlisting[style=tex,linerange={127-127}]{report/preamble.tex}
+
+
+\subsection{Schemas}
+
+Unless you plan to learn \href{https://tikz.dev/tutorial}{TikZ}, use any external tool to generate PNG or PDF for your schemas and place them into \texttt{report/schema} to import them like we did for plots.
+
+Alternatively, you may want to revive the fine tradition of \textsc{ascii}-art like in Fig.~\ref{fig:schema}. It is quite handy to make schemas right in the C code and have them reused here. 
+
+\begin{figure}[H]
+  \begin{asciiart}
+    \lstinputlisting[linerange={9-17}]{libellul/src/array.c}
+  \end{asciiart}
+  \caption{\textsc{ascii}-art is not a crime.}\label{fig:schema}
+\end{figure}
+
+
+\subsection{What could go wrong?}
+
+Only to show a glimpse of the kind of problems you may run into, we plot in Fig.~\ref{fig:firstints} the time (in nanoseconds per element) to allocate, generate, and compute the sum of the first $N$ integers. \textit{Incipit trag\oe dia}.
+
+\subsubsection{High expectations}
+
+Obviously, the plots in Fig.~\ref{fig:firstints} are expected to be unconditionnally flat because we normalize linear-time operations (see the loops of \texttt{on\{stack,heap\}} in \texttt{bench/00-dummy.c}).
+
+\begin{figure}[H]
+  \includegraphics[width=\textwidth]{second}
+\caption{Time to allocate, generate, and compute the sum of the first $N$ \texttt{int}'s on the heap and on the stack. The leftmost outlier values are due to the benchmark itself.\label{fig:firstints}}
+\end{figure}
+
+Instead, we only observe \textit{convergence} with different rates depending whether our values are on the stack or on the heap. The good news however, is that theoreticians are right when they look at $N\rightarrow\infty$.
+
+\subsubsection{Where to go from there}
+
+Here are only but a few hints:
+\begin{enumerate}
+\item The system will load code from a library only when it is needed-\cite{starynkevitch:dl:load} (because it takes time!);
+\item The hardware has to make room for code and data in the cache during execution~\cite{cunha:cache};
+\item The \texttt{calloc()} allocator has different codepaths for different values of memory needs~\cite{glibc:malloc:internals};
+\item The hardware is optimized for successively accessing contiguous data in memory~\cite{drepper:2007};
+\item The compiler may generate optimized code with automatic loop unrolling~\cite{lee:optimizations};
+\item Normalization by $N$ will amortize costly constant-time operations (like \texttt{calloc()}) less efficiently for small values of $N$. 
+\end{enumerate}
+
+As for the first point, \texttt{elapsed\_nsec()} has to be loaded from \texttt{libellul.so}, and \texttt{calloc()} and \texttt{fprintf()} have to be loaded from \texttt{libc.so}. This is related to the second point and it is known as \textit{cache warmup}. One way of warming up the cache is to force dummy execution of a sufficiently large benchmark. To show the effect of cache warmup, try to regenerate the plots after commenting these lines:
+
+\begin{code}
+  \lstinputlisting[style=C,linerange={67-69}]{bench/00-dummy.c}
+  \caption{Cache warmup is an important issue when writing a benchmark.}
+\end{code}
+
+The third point basically shows why serious people write their own memory allocator when they know how to optimize for their specific needs. 
+
+The fourth point tells us whether our particular problem will behave nicely on the hardware or not. In our example, we are constantly accessing \texttt{vec[i+1]} after \texttt{vec[i]} so we cannot have a pattern of accessing memory that is more fit for the hardware. Dynamic, recursive data structures and hashtables are not expected to have such nice patterns when accessing memory. 
+
+The fifth point tells you that the compiler is able to rewrite short loops so their body are duplicated for different values of \texttt{i}. In turn, this allows to take advantage of the superscalar architecture of modern CPU pipelines. This also explains why we have such low values for $N\rightarrow\infty$: the actual \textit{throughput} is of several instructions per CPU cycle. Again, our basic benchmark code could not be more fit for the hardware. 
+
+The last point advocates for a more clever general design of the benchmark, where smaller values of $\log_2 N$ would incur more runs. At least we can speed up our benchmark this way. 
+
+Other parameters may influence a benchmark, like CPU frequency scaling, alignment on cache line size, or system load. 
+
+That is the kind of observations you are expected to make and take into account in designing a benchmark that is as reproducible and meaningful as possible. You have to know your hardware and the system that runs it. This is instrumental for understanding other effects like cache line size or branch prediction.

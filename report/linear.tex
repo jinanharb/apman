@@ -1,0 +1,27 @@
+\chapter{Lists, Stacks, Queues}\label{chap:linear}
+
+Now for the most basic linear abstract data types after arrays. 
+
+As advocated in the course handout and its demo code, powerful lists may be implemented with genericity through intrusive data structures, see Chap.~\ref{chap:deques} for a nice one called a \textit{deque}. So basically, the interface for lists is just a bunch of macros that call the \texttt{deque} interface. 
+
+Now this is going to be different for stacks and queues, as they may be implemented by \textit{specialization} using either variable-length dynamic arrays or deques. Implementing queues with dynamic arrays implies to extend the array interface with \texttt{array\_pop\_front}---and how would you minimize the number of calls to \texttt{memmove(3)}? See how your code may/should evolve on a step-by-step basis?
+
+Without further caution, the choice of the underlying data structure for stacks or queues is going to be the same for all datum types across the applicative code. Allowing for even more flexibility means the user should be able to select their implementation upon the instantiation of a stack or a queue for each of their datum types. It then requires using genericity by code templating to produce functions with a tag for the datum type in their name---\textit{e.g.}, \texttt{stack\_int\_push()}, \texttt{queue\_double\_pop()}, \textit{etc.} This is not completely trivial and you may want to exercise on code templating alone before coming back here. 
+
+Remove these paragraphs when you are done!
+
+\section{List interface}\label{lists:interface}
+
+\section{Stack interface}\label{stacks:interface}
+
+\section{Queue interface}\label{queues:interface}
+
+
+\section{Benchmark}
+
+You may want to train your skills in benchmark design on a pretty simple occasion?
+
+\subsection{Stacks from dynamic arrays \textit{vs.} from deques}
+
+\subsection{Observations and conclusions}
+

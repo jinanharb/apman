@@ -1,0 +1,32 @@
+\chapter{Maps, Sets}\label{chap:maps}
+
+A map stores associations of a value to a unique key. Given a key, one wants to determine whether it is present in the map and if so, what is its associated value. This is the \texttt{get} primitive of maps. In practice, keys and values may have arbitrary types. The most common use case\footnote{Your maps really must be generic: imagine you have to compute a histogram of one million realizations over the first $2^{63}$ integers: much less memory will be used if a map is used since it will naturally adapt to the obvious sparseness in the problem at hand. In this example, a key is an integer that appeared once or more and the value is the said integer count.} is to have a string (a pointer) as a key that maps to the address of some structure in memory as its value (function calls within the Python virtual machine use a map with parameter name/value pairs).
+
+Not all maps are used the same way: parameter passing in Python is expected to incur much less removals (if any) than running a relational database. This is the reason why providing sound implementation variants is useful. 
+
+When you were introduced to maps, chances are you were using closed-addressing hashtables: an array of lists of key/value pairs. Chances are, too, that this array of lists had constant length. And very likely the insertion order was lost.
+
+These two limitations must be overcomed: the user should not have to provide an estimate of the expected number of key/value pairs when the map is created, and insertion order must be preserved~\cite{corry:maps:hate}. Such maps we call full-featured.
+
+Properly implementing variable-length maps is dependent on the underlying indexing data structure (special care must be devoted for resizing hashtables, and hashtries are immune to the issue). Preserving insertion order builds on a dedicated linear data type: \href{https://docs.oracle.com/javase/8/docs/api/java/util/LinkedHashMap.html}{\texttt{LinkedHashmap}} in Java uses a list, but a less memory-hungry technique is based on an array instead and will use \textit{indices into a variable-length array of key/value pairs}---and this key/value pairs array is visited during a map traversal, not the underlying indexing data structure. It follows that relevant code for the map traversal may be implemented (as macros?) at the map ADT level because it can be made independent of the underlying indexing data structure (hashtable, hashtrie). 
+
+If you use an array of indices to keep track of insertion order, you will need dedicated arrays for key/value storage (expect to have to create and detect \texttt{empty} such pairs because of removals). Whether you will have one array of key/value pairs or one array for keys and another for values is up to you---but the code should make obvious what choice is better: which are accessed more often? keys? values?
+
+At the very least, a map will need an equality test on keys---and quite likely also a hash function for keys: only people with very specific needs (or condition) will not use hash-based indexing structures for maps. The user may be told to supply this information using either of:
+\begin{enumerate}
+\item Function pointers in the map header, that compare/hash a key at given generic addresses: this would allow to move all code for maps to the library;
+\item Genericity by code templating, where preprocessor symbols for these functions must be provided before generating code for a map of given key/value datum types.
+\end{enumerate}
+
+Dereferencing generic pointers inside functions that are called by dereferencing a function pointer from library code is clearly not going to give the fastest code. Plus, it explicitly forbids taking advantage of compiler optimizations like inlining the calls to these two functions. Code templating obviates these shortcomings. For an example of how a generic map by code templating may be used, see Code.~\ref{code:map:example}. 
+
+Sets are implemented on top of maps without values, so a set only stores keys and no memory should ever be allocated for the inexistent values. Set operations, namely union, intersection and (symmetric) difference should be implemented on top of the map interface. You may want to extend your map interface to include an insertion method for the case when the user knows in advance that the key is not present in the map. This is called a \textit{fast path} (for some particular case of great interest in optimization). When a map implementation does not implement that fast path, it simply resorts to the usual insertion.
+
+More exotic mathematical objects like multisets only need one wrapper around the key to store its count, fuzzy sets only need one to store the non-zero key membership probability (note that the values of the underlying map may be used for this!), \textit{etc.} Multimaps are built by storing containers as values (typically a linear ADT with fast insertions). Bidirectional maps also allow to query keys by their (unique) values, they are generally implemented with two maps for each mapping direction. Obviously, implementing these mathematical objects is not required for you to grasp the essence of this course. Just keep in mind that they are only a few lines of code away once you have maps.
+
+Remove these paragraphs when you are done!
+
+\section{Map interface}
+
+\section{Set interface}
+

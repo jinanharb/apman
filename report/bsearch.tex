@@ -1,0 +1,14 @@
+\chapter{Binary search}\label{chap:binary:search}
+
+Binary search works on any data structure that stores sorted entries. The canonical example uses an array for the data structure. Maintaining ordered entries upon insertion/deletion is critical to fast logarithmic searches. These data structures naturally allow duplicates: when using a sorted array to implement a map, your code will have to forbid duplicates explicitly.
+
+Additional variations on the binary search allow for socalled range queries, a feature shared with some other sorted data structures to extract data from an arbitrary interval only. So the interface really is just one (or two) additional functions for sorted arrays.
+
+Historically, the Java implementation of the binary search has had a bug (an index overflow) that went unnoticed for more than 15 years. Make sure your code works correctly!
+
+Remove these paragraphs when your are done!
+
+\section{Design rationale}
+
+\section{Binary search interface}
+

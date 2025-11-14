@@ -1,0 +1,18 @@
+\chapter{Hashtables}\label{chap:hashtables}
+
+Hashtables have to tackle resizing as efficiently as possible. The simplest strategy is to keep the load factor between reasonable bounds (typically between 0.4 and 0.7 for open-addressing) and have resizing operations be performed in one shot. Some insertions/removals may therefore occasionally take ages to complete. Strategies that better smooth resizing over time are significantly more involved and often rely on using \textit{two} hashtables under the hood.
+
+We shall courageously keep silent on the crucial issue of choosing a hashing function (admirers of their beloved hashing functions are vocal). In full generality, it is a parameter of your hashtable: a good hashing function will compute random-looking integer hash values and it will be fast. In Chap.~\ref{chap:map:benchmark}, which provides a down-to-Earth user code example, we advocate for not using a hash function at all for benchmarking purposes (more precisely, to use the identity function as the hashing function).
+
+Really, the hash function has to be a parameter in your code. One nifty trick along genericity by code templating is to use a preprocessor symbol for the hashing function, the value of which is a \texttt{static inline} function, the prologue and epilogue of which may (often) be saved at runtime. The same trick holds for the equality function, see Chap.~\ref{chap:map:benchmark}. 
+
+But there is more to hashing functions. In an adversarial environment, an opponent may design a specially crafted insertion sequence in the hashtable that will trigger a high number of collisions, so much so that the table performance will drop to becoming unusable, effectively leading to a denial of service (DoS) attack. Hashing functions like \href{https://en.wikipedia.org/wiki/SipHash}{SipHash} have been designed to offer mitigation against DoS by hash-collision flooding. Stronger guarantees offered by socalled cryptographically-secure hash functions (SHA3 and friends) are pretty slow and quite overkill to implement hashtables.
+
+All hashtables try to store key/value pairs at the \textit{home slot}, the index of which is computed from the hash of the key (often, but not always, by a modulo reduction). A \textit{collision} occurs when two or more keys share the same home slot. The two main ways of handling collisions deserve a separate treatment in the next chapters. 
+
+Remove these paragraphs when you are done!
+
+\section{Design rationale}
+
+\section{Hashtable interface}
+

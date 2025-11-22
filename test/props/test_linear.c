@@ -1,62 +1,83 @@
 #include <stdio.h>
-#include <assert.h>
+#include <stdlib.h>
 #include <string.h>
-#include <libellul.h>
+#include <assert.h>
 
-#define HASH_FUN(key) ((unsigned long)(key) * 2654435761u % 4294967296u)
-#define EQ_FUN(a, b) ((a) == (b))
+/* ==== DÉFINITIONS ATTENDUES PAR TA LIBRAIRIE ==== */
 
-typedef int T_MAP_KEY;
-typedef const char* T_MAP_VALUE;
+#define T_MAP_TAG dict
+// La clé est un int
+#define T_MAP_KEY int
+
+typedef char *string_t;
+#define T_MAP_VALUE string_t
+
+
+// Préfixe pour générer map_new, map_put, etc.
+static inline int hash_id( int key ) {
+ return key;
+}
+
+#define T_MAP_HASHFUN hash_id
+
+static inline int equals( int key1, int key2 ) {
+ return key1 == key2;
+}
+
+#define T_MAP_HASHFUN hash_id
+// Pas de mot-clé particulier
+
+// Charge ton code générique (le .h après expansion des macros)
+#include <libellul/type/map.h>
+
+
 
 int main(void) {
-    printf("=== TESTS HASHTABLE LINEAR ===\n");
 
-    // Création
-    T map = MAP_METHOD(new)();
-    assert(map != NULL);
-    printf("Création OK\n");
+ printf("[1] Test dict_new...\n");
+ dict_t map = dict_new();
+ assert(map != NULL);
 
-    // Vérifier que la table est vide
-    assert(MAP_METHOD(length)(map) == 0);
-    assert(MAP_METHOD(contains)(map, 42) == 0);
-    printf("Table vide OK\n");
+ printf("[2] Test dict_length == 0...\n");
+ assert(dict_length(map) == 0);
 
-    // Insertion d'un élément
-    int success = MAP_METHOD(put)(&map, 42, "hello");
-    assert(success == 1);
-    assert(MAP_METHOD(length)(map) == 1);
-    printf("Insertion OK\n");
+ printf("[3] Test dict_contains sur clé absente...\n");
+ assert(dict_contains(map, 10) == 0);
 
-    // Lecture d'un élément
-    T_MAP_VALUE value = NULL;
-    int found = MAP_METHOD(get)(map, 42, &value);
-    assert(found == 1);
-    assert(strcmp(value, "hello") == 0);
-    printf("Lecture OK: %s\n", value);
+ printf("[4] Test dict_put (insertion)...\n");
+ assert(dict_put(&map, 10, "hello") == 1);
+ assert(dict_length(map) == 1);
 
-    // Vérification contains
-    assert(MAP_METHOD(contains)(map, 42) == 1);
-    printf("Contains OK\n");
+ printf("[5] Test dict_contains (clé présente)...\n");
+ assert(dict_contains(map, 10) == 1);
 
-    // Suppression
-    int removed = MAP_METHOD(remove)(&map, 42);
-    assert(removed == 1);
-    assert(MAP_METHOD(length)(map) == 0);
-    assert(MAP_METHOD(contains)(map, 42) == 0);
-    printf("Suppression OK\n");
+ printf("[6] Test dict_put (overwrite)...\n");
+ assert(dict_put(&map, 10, "world") == 1);
+ assert(dict_contains(map, 10) == 1);
 
-    // Suppression clé absente
-    removed = MAP_METHOD(remove)(&map, 99);
-    assert(removed == 0);
-    printf("Suppression inexistante OK\n");
+ printf("[7] Test insertion multiple (1..50)...\n");
+ for (int i = 1; i <= 50; i++)
+ assert(dict_put(&map, i, "x") == 1);
 
-    // Libération mémoire
-    MAP_METHOD(delete)(&map);
-    assert(map == NULL);
-    printf("Suppression de la table OK\n");
+ printf("[8] Vérification contains pour 1..50...\n");
+ for (int i = 1; i <= 50; i++)
+ assert(dict_contains(map, i) == 1);
 
-    printf("Tous les tests sont passés.\n");
+ printf("[9] Test remove sur clé existante...\n");
+ assert(dict_remove(&map, 10) == 1);
+ assert(dict_contains(map, 10) == 0);
 
-    return 0;
+ printf("[10] Test remove sur clé absente...\n");
+ assert(dict_remove(&map, 99999) == 0);
+
+ printf("[11] Test réinsertion après tombstone...\n");
+ assert(dict_put(&map, 10, "again") == 1);
+ assert(dict_contains(map, 10) == 1);
+
+ printf("[12] Test dict_delete...\n");
+ dict_delete(&map);
+ assert(map == NULL);
+
+ printf("Tous les tests sont PASSÉS sans erreur !\n");
+ return 0;
 }

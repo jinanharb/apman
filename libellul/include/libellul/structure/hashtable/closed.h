@@ -1,260 +1,131 @@
-/*
- * closed addressing hashtable.
- *
- */
+#ifndef CLOSED_H
+#define CLOSED_H
 
-#if defined( T_MAP_EXPORT_DEFS ) || !defined( T_MAP_EXPORT_CODE )
-
-typedef struct T {
-  size_t       length;
-  T_MAP_KEY   *bucket;
-
-#if !defined ( T_SET_ELEMENT )
-  T_MAP_VALUE *value;
-#endif
-} *T;
-
-#endif
-
-#include <libellul/type/map/interface.h>
-
-#if !defined( T_MAP_EXPORT_DEFS )
-/* Code templating for the actual implementation starts here */
-
-#include <libellul/memory.h>
-#include <libellul/type/array.h>
-
-/* Of course we are entitled to functions that are always local: */
-static inline int MAP_METHOD( foo_helper ) ( T map ) {
-  /* Dummy example! Mostly useful to factorize code in the implementation! */
-  return printf( "Called %s::%s on %sempty map at %p\n",
-                 __FILE__, __func__, !MAP_METHOD( is_empty ) ( map ) ? "non-" : "", map );
-}
-
-
-T_MAP_INTERFACE T MAP_METHOD( new )( void ) {
-  T map = NULL;
-
-  /* In the implementation, use any local or interface function like: */
-  MAP_METHOD( foo_helper ) ( map );
-
-  /* TODO: Finish init */
-
-  return map;
-}
-
-/* TODO: Implement other functions in the interface */
-
-T_MAP_INTERFACE size_t MAP_METHOD( length )( T map ) {
-  return 0 == map->length;
-}
-
-T_MAP_INTERFACE void   MAP_METHOD( delete )( T *map ) {
-
-}
-
-T_MAP_INTERFACE int    MAP_METHOD( contains )( T map, T_MAP_KEY key ) {
-
-}
-
-T_MAP_INTERFACE int    MAP_METHOD( remove )( T *map, T_MAP_KEY key ) {
-
-}
-
-#if defined( T_SET_ELEMENT )
-T_MAP_INTERFACE int    MAP_METHOD( insert )( T *set, T_SET_ELEMENT element ) {
-
-}
-#else
-T_MAP_INTERFACE int    MAP_METHOD( put )( T *map, T_MAP_KEY key, T_MAP_VALUE value ) {
-
-}
-
-T_MAP_INTERFACE int    MAP_METHOD( get )( T map, T_MAP_KEY key, T_MAP_VALUE *value ) {
-
-}
-#endif
-
-#endif
-
-#undef T_IMPL_HASHTABLE_LINEAR
-#undef T_IMPL_HASHTABLE_LINEAR_NO_TOMBSTONES
-/*
- * closed addressing hashtable using Libellul deques
- */
-
-#include <libellul/type/deques.h>
-#include <libellul/memory.h>
-#include <string.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <stddef.h>
+#include <stdlib.h>
+#include <string.h>
 #include <assert.h>
+#include <stdio.h> // needed because your .c uses printf
+#include <libellul.h>
 
-/* === Map types === */
-typedef int T_MAP_KEY;
-typedef const char* T_MAP_VALUE;
+/* Forward declaration of the hashtable structure */
+typedef struct closed_entry_t closed_entry_t;
 
-#ifndef T_SET_ELEMENT
-#define T_SET_ELEMENT 0
-#endif
+typedef struct 
+{
+deque_t *buckets;
+size_t nbuckets;
+size_t size;
+} closed_t;
 
-/* === Entry in a deque === */
-typedef struct Entry {
-    link_t link;
-    T_MAP_KEY key;
-#if !T_SET_ELEMENT
-    T_MAP_VALUE value;
-#endif
-} Entry;
+/* User must provide hash and equality functions */
+typedef size_t (*closed_hash_fn)(const void *key);
+typedef int (*closed_eq_fn)(const void *a, const void *b);
 
-/* === Hashtable type === */
-typedef struct T {
-    size_t length;      // total number of elements
-    size_t capacity;    // number of buckets
-    deque_t *buckets;   // array of deques
-} *T;
+/* Functions */
+void closed_init(closed_t *ht, size_t nbuckets, size_t entry_size, size_t key_offset);
+void closed_destroy(closed_t *ht, size_t entry_size, size_t key_offset);
+int closed_insert(closed_t *ht, void *entry, size_t key_offset, closed_hash_fn hash, closed_eq_fn eq);
+void* closed_find(closed_t *ht, void *key, size_t key_offset, closed_hash_fn hash, closed_eq_fn eq);
+void closed_foreach(closed_t *ht, size_t key_offset, void (*fn)(void *entry, void *ud), void *ud);
 
-/* === Hash function === */
-#define HASH_FUN(key) ((unsigned long)(key) * 2654435761u % 4294967296u)
+static inline size_t closed_size(closed_t *ht) { return ht ? ht->size : 0; }
+static inline size_t closed_bucket_count(closed_t *ht) { return ht ? ht->nbuckets : 0; }
 
-/* === Interface macros === */
-#define T_MAP_INTERFACE
-#define MAP_METHOD(name) name##_closed
+/* ------------------------- IMPLEMENTATION BELOW ------------------------- */
 
-/* ==================== Functions ==================== */
+/* Init hashtable with number of buckets and entry offset for deque */
+void closed_init(closed_t *ht, size_t nbuckets, size_t entry_size, size_t key_offset) {
+assert(ht);
+ht->nbuckets = nbuckets ? nbuckets : 16;
+ht->size = 0;
+ht->buckets = (deque_t*)calloc(ht->nbuckets, sizeof(deque_t));
+assert(ht->buckets);
 
-/* Create a new hashtable */
-T_MAP_INTERFACE T MAP_METHOD(new)(void) {
-    size_t initial_capacity = 16;
-    T map = malloc(sizeof(*map));
-    map->length = 0;
-    map->capacity = initial_capacity;
+typedef struct { char dummy; } dummy_t; // dummy struct for offset
 
-    map->buckets = malloc(sizeof(deque_t) * initial_capacity);
-    for (size_t i = 0; i < initial_capacity; i++) {
-        deque_reset(&map->buckets[i]);
-    }
-    return map;
+for (size_t i = 0; i < ht->nbuckets; ++i) {
+deque_init(&ht->buckets[i], dummy_t, dummy); // use dummy
+}
 }
 
-/* Insert / put a key-value pair */
-T_MAP_INTERFACE int MAP_METHOD(put)(T *map_ptr, T_MAP_KEY key, T_MAP_VALUE value) {
-    if (!map_ptr) return 0;
-    if (!*map_ptr) *map_ptr = MAP_METHOD(new)();
-    T map = *map_ptr;
+void closed_destroy(closed_t *ht, size_t entry_size, size_t key_offset) {
+if (!ht || !ht->buckets) return;
 
-    size_t h = HASH_FUN(key) % map->capacity;
-    deque_t *bucket = &map->buckets[h];
+// Iterate through all the buckets in the hashtable
+for (size_t i = 0; i < ht->nbuckets; ++i) {
+deque_t *dq = &ht->buckets[i];
 
-    /* Check if key exists */
-    link_t *link = bucket->head.next;
-    while (link) {
-        Entry *entry = (Entry*)((char*)link - offsetof(Entry, link));
-        if (entry->key == key) {
-#if !T_SET_ELEMENT
-            entry->value = value;
-#endif
-            return 0; // updated
-        }
-        link = link->next;
-    }
-
-    /* Insert new entry */
-    Entry *new_entry = malloc(sizeof(Entry));
-    new_entry->key = key;
-#if !T_SET_ELEMENT
-    new_entry->value = value;
-#endif
-    link_init(&new_entry->link);
-    deque_addback(bucket, &new_entry->link);
-
-    map->length++;
-    return 1; // inserted
+// Reset the deque's internal state (but don't free the elements)
+deque_reset(dq); // Don't free elements, just reset the deque
 }
 
-/* Insert for set elements (no value) */
-#if T_SET_ELEMENT
-T_MAP_INTERFACE int MAP_METHOD(insert)(T *set_ptr, T_SET_ELEMENT element) {
-    /* treat element as key */
-    return MAP_METHOD(put)((T*)set_ptr, element, 0);
-}
-#endif
-
-/* Get value for a key */
-T_MAP_INTERFACE int MAP_METHOD(get)(T map, T_MAP_KEY key, T_MAP_VALUE *value) {
-    if (!map) return 0;
-    size_t h = HASH_FUN(key) % map->capacity;
-    deque_t *bucket = &map->buckets[h];
-
-    link_t *link = bucket->head.next;
-    while (link) {
-        Entry *entry = (Entry*)((char*)link - offsetof(Entry, link));
-        if (entry->key == key) {
-#if !T_SET_ELEMENT
-            if (value) *value = entry->value;
-#endif
-            return 1;
-        }
-        link = link->next;
-    }
-    return 0;
+// After all elements are not freed, free the bucket array itself
+free(ht->buckets);
+ht->buckets = NULL;
+ht->nbuckets = 0;
+ht->size = 0; // Reset the size of the hashtable
 }
 
-/* Remove a key */
-T_MAP_INTERFACE int MAP_METHOD(remove)(T *map_ptr, T_MAP_KEY key) {
-    if (!map_ptr || !*map_ptr) return 0;
-    T map = *map_ptr;
 
-    size_t h = HASH_FUN(key) % map->capacity;
-    deque_t *bucket = &map->buckets[h];
-
-    link_t *link = bucket->head.next;
-    while (link) {
-        Entry *entry = (Entry*)((char*)link - offsetof(Entry, link));
-        if (entry->key == key) {
-            /* Remove from deque */
-            if (link->prev) link->prev->next = link->next;
-            if (link->next) link->next->prev = link->prev;
-            if (bucket->head.next == link) bucket->head.next = link->next;
-            if (bucket->head.prev == link) bucket->head.prev = link->prev;
-
-            free(entry);
-            map->length--;
-            bucket->length--;
-            return 1;
-        }
-        link = link->next;
-    }
-    return 0;
+int closed_insert(closed_t *ht, void *entry, size_t key_offset, closed_hash_fn hash, closed_eq_fn eq) {
+if (!ht || !ht->buckets || !entry) {
+fprintf(stderr, "Error: Invalid arguments in closed_insert\n");
+return -1;
 }
 
-/* Check if key exists */
-T_MAP_INTERFACE int MAP_METHOD(contains)(T map, T_MAP_KEY key) {
-    return MAP_METHOD(get)(map, key, NULL);
+// Get the key from the entry
+void *key = (char*)entry + key_offset;
+size_t h = hash(key) % ht->nbuckets;
+deque_t *dq = &ht->buckets[h];
+
+if (!dq) {
+fprintf(stderr, "Error: Invalid deque at bucket %zu\n", h);
+return -1;
 }
 
-/* Return total number of elements */
-T_MAP_INTERFACE size_t MAP_METHOD(length)(T map) {
-    return map ? map->length : 0;
+// Iterate through the deque to check if the key already exists
+deque_foreach(dq, el) {
+void *ekey = (char*)el + key_offset;
+if (eq(ekey, key)) {
+memcpy(el, entry, sizeof(*entry)); // Replace the existing entry
+return 0; // Key found, replaced the entry
+}
 }
 
-/* Delete the hashtable */
-T_MAP_INTERFACE void MAP_METHOD(delete)(T *map_ptr) {
-    if (!map_ptr || !*map_ptr) return;
-    T map = *map_ptr;
+link_t *lnk = (link_t*)entry;
+link_init(lnk); // Initialize the link if needed
+deque_pushback(dq, entry); // Add the new entry to the deque
+ht->size++; // Increment the size of the hashtable
 
-    for (size_t i = 0; i < map->capacity; i++) {
-        link_t *link = map->buckets[i].head.next;
-        while (link) {
-            Entry *entry = (Entry*)((char*)link - offsetof(Entry, link));
-            link_t *next = link->next;
-            free(entry);
-            link = next;
-        }
-    }
-
-    free(map->buckets);
-    free(map);
-    *map_ptr = NULL;
+return 0;
 }
+
+
+/* Find entry by key */
+void* closed_find(closed_t *ht, void *key, size_t key_offset, closed_hash_fn hash, closed_eq_fn eq) {
+if (!ht || !ht->buckets) return NULL;
+size_t h = hash(key) % ht->nbuckets;
+deque_t *dq = &ht->buckets[h];
+
+deque_foreach(dq, el) {
+void *ekey = (char*)el + key_offset;
+if (eq(ekey, key)) return el;
+}
+return NULL;
+}
+
+
+/* Apply callback to every entry */
+void closed_foreach(closed_t *ht, size_t key_offset, void (*fn)(void *entry, void *ud), void *ud) {
+if (!ht || !ht->buckets || !fn) return;
+
+for (size_t i = 0; i < ht->nbuckets; ++i) {
+deque_t *dq = &ht->buckets[i];
+deque_foreach(dq, el) {
+fn(el, ud);
+}
+}
+}
+
+#endif /* CLOSED_H */

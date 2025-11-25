@@ -1,156 +1,170 @@
-#ifndef LINEAR_HASHTABLE_H
-#define LINEAR_HASHTABLE_H
+/*
+ * Linear addressing hashtable.
+ *
+ * Variants:
+ * T_IMPL_HASHTABLE_LINEAR_NO_TOMBSTONES: Use backward-shifting deletion.
+ *
+ */
+#define TABLE_SIZE 128
+#define EMPTY_KEY 0
+#define INITIAL_CAPACITY 16
+#define TOMBSTONE_KEY ((T_MAP_KEY) -1)
+#define T_MAP_HASHFUN 
 
-#include <stdio.h>
-#include <stdlib.h>
-
-typedef int T_MAP_KEY;
-typedef const char* T_MAP_VALUE;
-
-#define HASH_FUN(key) ((unsigned long)(key) * 2654435761u % 4294967296u)
-#define EQ_FUN(a,b) ((a) == (b))
-
-#ifndef T_SET_ELEMENT
-#define T_SET_ELEMENT 0
-#endif
+#if defined( T_MAP_EXPORT_DEFS ) || !defined( T_MAP_EXPORT_CODE )
 
 typedef struct T {
-    size_t length;
-    T_MAP_KEY *bucket;
-#if !T_SET_ELEMENT
-    T_MAP_VALUE *value;
+ size_t length;
+ T_MAP_KEY *bucket;
+
+#if !defined ( T_SET_ELEMENT )
+ T_MAP_VALUE *value;
 #endif
 } *T;
 
-#define T_MAP_INTERFACE
-#define MAP_METHOD(name) name##_linear
-
-/* ==================== Fonctions ==================== */
-
-/* Création */
-T_MAP_INTERFACE T MAP_METHOD(new)(void) {
-    T map = (T) malloc(sizeof(*map));
-    map->length = 0;
-
-    size_t cap = 16;
-    map->bucket = (T_MAP_KEY*) malloc(sizeof(T_MAP_KEY) * cap);
-    for (size_t i = 0; i < cap; ++i) map->bucket[i] = -1;
-
-#if !T_SET_ELEMENT
-    map->value = (T_MAP_VALUE*) malloc(sizeof(T_MAP_VALUE) * cap);
 #endif
 
-    return map;
+#include <libellul/type/map/interface.h>
+
+#if !defined( T_MAP_EXPORT_DEFS )
+/* Code templating for the actual implementation starts here */
+
+#include <libellul/memory.h>
+#include <libellul/type/array.h>
+
+
+/* Of course we are entitled to functions that are always local: */
+static inline int MAP_METHOD( foo_helper ) ( T map ) {
+ /* Dummy example! Mostly useful to factorize code in the implementation! */
+ return printf( "Called %s::%s on %sempty map at %p\n",
+ __FILE__, __func__, !MAP_METHOD( is_empty ) ( map ) ? "non-" : "", map );
 }
 
-/* Longueur */
-T_MAP_INTERFACE size_t MAP_METHOD(length)(T map) {
-    return map ? map->length : 0;
+
+T_MAP_INTERFACE T MAP_METHOD( new )( void ) {
+ T map = calloc(1, sizeof(*map));
+
+ map->length = 0;
+ map->bucket = calloc(TABLE_SIZE, sizeof(T_MAP_KEY));
+
+#if !defined(T_SET_ELEMENT)
+ map->value = calloc(TABLE_SIZE, sizeof(T_MAP_VALUE));
+#endif
+
+ return map;
 }
 
-/* Supprimer */
-T_MAP_INTERFACE void MAP_METHOD(delete)(T *map) {
-    if (!map || !*map) return;
-    T m = *map;
 
-    if (m->bucket) free(m->bucket);
-#if !T_SET_ELEMENT
-    if (m->value) free(m->value);
-#endif
-    free(m);
-    *map = NULL;
+T_MAP_INTERFACE size_t MAP_METHOD( length )( T map ) {
+ return map->length;
 }
 
-/* Contient */
-T_MAP_INTERFACE int MAP_METHOD(contains)(T map, T_MAP_KEY key) {
-    if (!map) return 0;
-    size_t cap = 16;
-    size_t h = HASH_FUN(key) % cap;
-    for (size_t i = 0; i < cap; ++i) {
-        size_t idx = (h + i) % cap;
-        T_MAP_KEY k = map->bucket[idx];
-        if (k == -1) return 0;
-        if (k == key) return 1;
-    }
-    return 0;
+T_MAP_INTERFACE void MAP_METHOD( delete )( T *map ) {
+ if (!map || !*map) return;
+
+ free((*map)->bucket);
+#if !defined(T_SET_ELEMENT)
+ free((*map)->value);
+#endif
+
+ free(*map);
+ *map = NULL;
+
 }
 
-/* Ajouter / mettre */
-T_MAP_INTERFACE int MAP_METHOD(put)(T *map, T_MAP_KEY key, T_MAP_VALUE value) {
-    if (!map) return 0;
-    if (!*map) *map = MAP_METHOD(new)();
-    T m = *map;
+T_MAP_INTERFACE int MAP_METHOD( contains )( T map, T_MAP_KEY key ) {
+ size_t idx = T_MAP_HASHFUN(key) % TABLE_SIZE;
 
-#if T_SET_ELEMENT
-    (void)value; // éviter le warning si on n’utilise pas value
-#endif
+ for (size_t i = 0; i < TABLE_SIZE; i++) {
+ if (map->bucket[idx] == EMPTY_KEY)
+ return 0; // key never inserted
+ if (map->bucket[idx] == key)
+ return 1;
 
-    size_t cap = 16;
-    size_t h = HASH_FUN(key) % cap;
-    for (size_t i = 0; i < cap; ++i) {
-        size_t idx = (h + i) % cap;
-        T_MAP_KEY k = m->bucket[idx];
-        if (k == -1) {
-            m->bucket[idx] = key;
-#if !T_SET_ELEMENT
-            m->value[idx] = value;
-#endif
-            m->length++;
-            return 1;
-        }
-        if (k == key) {
-#if !T_SET_ELEMENT
-            m->value[idx] = value;
-#endif
-            return 0;
-        }
-    }
-    return 0;
+ idx = (idx + 1) % TABLE_SIZE;
+ }
+
+ return 0;
 }
 
-/* Obtenir / get */
-T_MAP_INTERFACE int MAP_METHOD(get)(T map, T_MAP_KEY key, T_MAP_VALUE *value) {
-#if T_SET_ELEMENT
-    (void)value; // valeur inutilisée pour un set
-#endif
+T_MAP_INTERFACE int MAP_METHOD( remove )( T *map, T_MAP_KEY key ) {
+ size_t idx = T_MAP_HASHFUN(key) % TABLE_SIZE;
 
-    if (!map) return 0;
-    size_t cap = 16;
-    size_t h = HASH_FUN(key) % cap;
-    for (size_t i = 0; i < cap; ++i) {
-        size_t idx = (h + i) % cap;
-        T_MAP_KEY k = map->bucket[idx];
-        if (k == -1) return 0;
-        if (k == key) {
-#if !T_SET_ELEMENT
-            if (value) *value = map->value[idx];
+ for (size_t i = 0; i < TABLE_SIZE; i++) {
+ if ((*map)->bucket[idx] == EMPTY_KEY)
+ return 0;
+ if ((*map)->bucket[idx] == key) {
+ (*map)->bucket[idx] = EMPTY_KEY;
+#if !defined(T_SET_ELEMENT)
+ (*map)->value[idx] = 0;
 #endif
-            return 1;
-        }
-    }
-    return 0;
+ (*map)->length--;
+ return 1;
+ }
+ idx = (idx + 1) % TABLE_SIZE;
+ }
+
+ return 0;
 }
 
-/* Supprimer clé */
-T_MAP_INTERFACE int MAP_METHOD(remove)(T *map, T_MAP_KEY key) {
-    if (!map || !*map) return 0;
-    T m = *map;
-    size_t cap = 16;
-    size_t h = HASH_FUN(key) % cap;
-    for (size_t i = 0; i < cap; ++i) {
-        size_t idx = (h + i) % cap;
-        T_MAP_KEY k = m->bucket[idx];
-        if (k == -1) return 0;
-        if (k == key) {
-            m->bucket[idx] = -1;
-#if !T_SET_ELEMENT
-            m->value[idx] = NULL;
-#endif
-            if (m->length > 0) m->length--;
-            return 1;
-        }
-    }
-    return 0;
+
+#if defined( T_SET_ELEMENT )
+T_MAP_INTERFACE int MAP_METHOD( insert )( T *map, T_SET_ELEMENT element ) {
+ size_t idx = T_MAP_HASHFUN(element) % TABLE_SIZE;
+
+ for (size_t i = 0; i < TABLE_SIZE; i++) {
+ if ((*map)->bucket[idx] == EMPTY_KEY) {
+ (*map)->bucket[idx] = element;
+ (*map)->length++;
+ return 1;
+ }
+ idx = (idx + 1) % TABLE_SIZE;
+ }
+
+ return 0; // table full
 }
 
-#endif /* LINEAR_HASHTABLE_H */
+#else
+T_MAP_INTERFACE int MAP_METHOD( put )( T *map, T_MAP_KEY key, T_MAP_VALUE value ) {
+
+ size_t idx = T_MAP_HASHFUN(key) % TABLE_SIZE;
+
+ for (size_t i = 0; i < TABLE_SIZE; i++) {
+
+ // Insert in empty slot
+ if ((*map)->bucket[idx] == EMPTY_KEY) {
+ (*map)->bucket[idx] = key;
+ (*map)->value[idx] = value;
+ (*map)->length++;
+ return 1;
+ }
+
+ // Update existing
+ if ((*map)->bucket[idx] == key) {
+ (*map)->value[idx] = value;
+ return 1;
+ }
+
+ idx = (idx + 1) % TABLE_SIZE;
+ }
+
+ return 0; // full
+}
+
+/*
+T_MAP_INTERFACE int MAP_METHOD( put )( T *map, T_MAP_KEY key, T_MAP_VALUE value ) {
+ for (size_t i = 0; i < map->capacity; i++) {
+ if (map->bucket[i] == key) {
+ *value = map->value[i];
+ return 1;
+ }
+ }
+ return 0;
+}
+ */
+#endif
+
+#endif
+
+#undef T_IMPL_HASHTABLE_LINEAR
+#undef T_IMPL_HASHTABLE_LINEAR_NO_TOMBSTONES

@@ -7,20 +7,23 @@
 
 #define T_MAP_TAG dict
 // La clé est un int
-#define T_MAP_KEY int
+typedef int key_t;
+#define T_MAP_KEY key_t
 
-typedef char *string_t;
-#define T_MAP_VALUE string_t
+
+typedef const char * value_t;
+#define T_MAP_VALUE value_t
+
 
 
 // Préfixe pour générer map_new, map_put, etc.
-static inline int hash_id( int key ) {
+static inline int hash_id( key_t key ) {
  return key;
 }
 
 #define T_MAP_HASHFUN hash_id
 
-static inline int equals( int key1, int key2 ) {
+static inline int equals( key_t key1, key_t key2 ) {
  return key1 == key2;
 }
 

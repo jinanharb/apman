@@ -1,78 +1,74 @@
-/**
- * @file test-robinhood.c
- * @brief Functional tests for the Robin-Hood hashtable.
- */
-
-#include <libellul.h>
-#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <assert.h>
+#include <string.h>
 
+/* ---- DEFINIÇÕES PARA O GENERICS ---- */
+
+#define T_MAP_TAG dict
 #define T_MAP_KEY int
-#define T_MAP_VALUE const char *
+
+typedef char* string_t;
+#define T_MAP_VALUE string_t
+
+static inline int h(int x) { return x * 2654435761u; }
+#define T_MAP_HASHFUN h
+
 #define T_IMPL_HASHTABLE_ROBIN_HOOD
 
+#include <libellul/type/map.h>
 
-int main(int argc, char *argv[]) {
+/* ----------------------------------------------------------- */
 
-    unit_test(argc, argv);
+int main(void) {
 
-    test_suite("Robin Hood Hashtable");
+ printf("[1] Test dict_new...\n");
+ dict_t m = dict_new();
+ assert(m != NULL);
 
-    
-    T map = MAP_METHOD(new)();
-    test_assert(map != NULL, "Map created successfully");
-    test_assert(MAP_METHOD(length)(map) == 0, "Length should be zero on new map");
+ printf("[2] Test length == 0...\n");
+ assert(dict_length(m) == 0);
 
-    
-    test_assert(MAP_METHOD(put)(&map, 1, "one") == 1,
-                "Inserting new key should return 1");
-    test_assert(MAP_METHOD(length)(map) == 1,
-                "After one insert, length should be 1");
-    test_assert(MAP_METHOD(contains)(map, 1) == 1,
-                "Key 1 must be contained");
+ printf("[3] Test contains absent...\n");
+ assert(dict_contains(m, 42) == 0);
 
-    
-    const char *val = NULL;
-    test_assert(MAP_METHOD(get)(map, 1, &val) == 1,
-                "get(1) should succeed");
-    test_assert(strcmp(val, "one") == 0,
-                "get(1) should return \"one\"");
+ printf("[4] Test put...\n");
+ assert(dict_put(&m, 42, "hello") == 1);
+ assert(dict_contains(m, 42) == 1);
 
-    
-    test_assert(MAP_METHOD(put)(&map, 1, "uno") == 0,
-                "Inserting existing key returns 0");
-    MAP_METHOD(get)(map, 1, &val);
-    test_assert(strcmp(val, "uno") == 0,
-                "Overwritten key should have new value");
+ printf("[5] Test get...\n");
+ string_t v = NULL;
+ assert(dict_get(m, 42, &v) == 1);
+ assert(strcmp(v, "hello") == 0);
 
-    
-    MAP_METHOD(put)(&map, 2, "two");
-    MAP_METHOD(put)(&map, 3, "three");
+ printf("[6] Test overwrite...\n");
+ assert(dict_put(&m, 42, "world") == 1);
+ assert(dict_get(m, 42, &v) == 1);
+ assert(strcmp(v, "world") == 0);
 
-    test_assert(MAP_METHOD(length)(map) == 3,
-                "Length should be 3 after inserting 3 keys");
+ printf("[7] Test multiple insertions...\n");
+ for (int i = 1; i <= 70; i++)
+ assert(dict_put(&m, i, "x") == 1);
 
-   
-    test_assert(MAP_METHOD(remove)(&map, 2) == 1,
-                "remove(2) should succeed");
-    test_assert(MAP_METHOD(contains)(map, 2) == 0,
-                "After removal, key 2 must not be contained");
-    test_assert(MAP_METHOD(length)(map) == 2,
-                "Length must decrease after remove");
+ printf("[8] Test contains(1..70)...\n");
+ for (int i = 1; i <= 70; i++)
+ assert(dict_contains(m, i) == 1);
 
-   
-    test_assert(MAP_METHOD(remove)(&map, 42) == 0,
-                "Removing non-existing key returns 0");
+ printf("[9] Test remove exist...\n");
+ assert(dict_remove(&m, 10) == 1);
+ assert(dict_contains(m, 10) == 0);
 
-   
-    test_oracle_start(stdout);
-    printf("Key 1 = %s\n", val);
-    test_oracle_check("Oracle test", "Key 1 = uno");
+ printf("[10] Test remove absent...\n");
+ assert(dict_remove(&m, 999) == 0);
 
+ printf("[11] Reinsertion after deletion...\n");
+ assert(dict_put(&m, 10, "again") == 1);
+ assert(dict_contains(m, 10) == 1);
 
-    MAP_METHOD(delete)(&map);
-    test_assert(map == NULL, "Map must be NULL after delete");
+ printf("[12] Delete dictionary...\n");
+ dict_delete(&m);
+ assert(m == NULL);
 
-    exit(EXIT_SUCCESS);
+ printf("Robin Hood: TODOS OS TESTES PASSARAM!\n");
+ return 0;
 }

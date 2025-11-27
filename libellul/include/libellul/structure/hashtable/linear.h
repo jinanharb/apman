@@ -11,6 +11,7 @@
 #define TOMBSTONE_KEY ((T_MAP_KEY) -1)
 #define T_MAP_HASHFUN 
 
+
 #if defined( T_MAP_EXPORT_DEFS ) || !defined( T_MAP_EXPORT_CODE )
 
 typedef struct T {

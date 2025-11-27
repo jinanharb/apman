@@ -1,102 +1,131 @@
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <libellul.h>
 #include <libellul/type/deques.h>
 
+/* ==== DÉFINITIONS ATTENDUES PAR LA LIBRAIRIE ==== */
 
-/* --- Example entry type --- */
+// Définir la structure d'entrée avec link_t en premier pour le deque
 typedef struct {
- int key;
- int value;
- link_t link; 
-} int_entry_t;
+    link_t link;    
+    int key;          
+    const char *value;
+} my_entry_t;
 
-#define T_MAP_TAG intmap
-#define T_MAP_KEY int
-#define T_MAP_VALUE int_entry_t
+// Définir les macros AVANT d'inclure hashtable.h
+#define T_CLOSED_TAG dict
+#define T_CLOSED_ENTRY my_entry_t
+#define T_CLOSED_KEY int
 
-#define T_IMPL_HASHTABLE 
+// Spécifier l'implémentation closed
 #define T_IMPL_HASHTABLE_CLOSED
-#define T_MAP_EXPORT_DEFS
 
-#include <libellul/type/map.h>
+// Charger le dispatcher hashtable.h qui inclura closed.h
+#include <libellul/structure/hashtable.h>
 
-typedef closed_t intmap_t;
-
-/* Hash function */
-static size_t int_hash(const void *k) {
- const int *key = k;
- return (size_t)(*key);
+// Implémenter les fonctions de hachage et d'égalité requises
+size_t dict_hash(const int *key) {
+    return (size_t)(*key);
 }
 
-/* Equality function */
-static int int_eq(const void *a, const void *b) {
- return (*(const int*)a == *(const int*)b);
+int dict_eq(const int *a, const int *b) {
+    return *a == *b;
 }
 
-/* Generate random entries */ 
-static int_entry_t* rand_entries(size_t n) 
-{
- int_entry_t *arr = calloc(n, sizeof(*arr)); 
- assert(arr); 
- for (size_t i = 0; i < n; i++) {
- arr[i].key = rand() % 100; 
- arr[i].value = rand() % 500; 
- }
- return arr; 
+/* top of file, before main */
+static void count_entries(my_entry_t *entry, void *ud) {
+    (void)entry;
+    int *counter = (int*)ud;
+    (*counter)++;
 }
 
 
-/* Test inserting, finding, and removing entries */
-static void hashtable_basic_test(size_t n) {
- int_entry_t *entries = rand_entries(n);
- closed_t ht;
-
- test_suite("Hashtable closed-addressing basic operations");
-
- /* Initialize hashtable with link offset for deque */
- closed_init(&ht, 7, sizeof(int_entry_t), offsetof(int_entry_t, link));
- test_assert(ht.size == 0, "New hashtable is empty");
- fflush(stdout);
-
- /* Insert entries using key_offset for hashing/equality */
- for (size_t i = 0; i < n; i++) {
- int ret = closed_insert(&ht, &entries[i],
- offsetof(int_entry_t, key),
- int_hash, int_eq);
- test_assert(ret == 0, "Insert returns 0");
- fflush(stdout);
- }
- test_assert(ht.size == n, "All entries inserted");
- fflush(stdout);
-
- /* Find entries */
- for (size_t i = 0; i < n; i++) 
- {
- int_entry_t *found = closed_find(&ht,
- &entries[i].key,
- offsetof(int_entry_t, key),
- int_hash, int_eq);
- test_assert(found != NULL, "Entry found");
- fflush(stdout);
- test_assert(found->value == entries[i].value, "Value matches inserted");
- fflush(stdout);
- }
-
- /* Destroy table */
- closed_destroy(&ht, sizeof(int_entry_t), offsetof(int_entry_t, link));
- test_assert(ht.buckets == NULL && ht.size == 0, "Hashtable destroyed");
- fflush(stdout);
-
- free(entries);
-}
-
-/* Main test entry */
-int main(int argc, char *argv[]) 
-{
- unit_test(argc, argv);
-
- hashtable_basic_test(3);
-
- exit(EXIT_SUCCESS);
+int main(void) {
+    printf("[1] Test dict_new...\n");
+    dict_t table = dict_new();
+    assert(table.buckets != NULL);
+    assert(dict_length(&table) == 0);
+    
+    printf("[2] Test dict_length == 0...\n");
+    assert(dict_length(&table) == 0);
+    assert(dict_is_empty(&table) == 1);
+    
+    printf("[3] Test dict_find sur clé absente...\n");
+    int key_test = 10;
+    assert(dict_find(&table, &key_test) == NULL);
+    
+    printf("[4] Test dict_insert (insertion)...\n");
+    my_entry_t entry1 = {.key = 10, .value = "hello"};
+    assert(dict_insert(&table, &entry1) == 0);
+    assert(dict_length(&table) == 1);
+    assert(dict_is_empty(&table) == 0);
+    
+    printf("[5] Test dict_find (clé présente)...\n");
+    my_entry_t *found = dict_find(&table, &key_test);
+    assert(found != NULL);
+    assert(found->key == 10);
+    assert(strcmp(found->value, "hello") == 0);
+    
+    printf("[6] Test dict_insert (overwrite)...\n");
+    my_entry_t entry2 = {.key = 10, .value = "world"};
+    assert(dict_insert(&table, &entry2) == 0);
+    found = dict_find(&table, &key_test);
+    assert(found != NULL);
+    assert(strcmp(found->value, "world") == 0);
+    assert(dict_length(&table) == 1); // Pas de nouvelle entrée
+    
+    printf("[7] Test insertion multiple (1..50)...\n");
+    static my_entry_t entries[50]; 
+    for (int i = 1; i <= 50; i++) {
+        entries[i-1].key = i;
+        entries[i-1].value = "x";
+        assert(dict_insert(&table, &entries[i-1]) == 0);
+    }
+    assert(dict_length(&table) == 50); // 1..50
+    
+    printf("[8] Vérification find pour 1..50...\n");
+    for (int i = 1; i <= 50; i++) {
+        int k = i;
+        my_entry_t *e = dict_find(&table, &k);
+        assert(e != NULL);
+        assert(e->key == i);
+    }
+  
+    printf("[9] Test remove sur clé existante...\n");
+    assert(dict_remove(&table, &key_test) == 0);
+    assert(dict_find(&table, &key_test) == NULL);
+    assert(dict_length(&table) == 49);
+    
+    printf("[10] Test remove sur clé absente...\n");
+    int key_absent = 99999;
+    assert(dict_remove(&table, &key_absent) == -1);
+    assert(dict_length(&table) == 49);
+    
+    printf("[11] Test réinsertion après remove...\n");
+    static my_entry_t entry3 = {.key = 10, .value = "again"};  
+    assert(dict_insert(&table, &entry3) == 0);
+    found = dict_find(&table, &key_test);
+    assert(found != NULL);
+    assert(strcmp(found->value, "again") == 0);
+    assert(dict_length(&table) == 50);
+    
+    printf("[12] Test dict_foreach...\n");
+    int count = 0;
+    dict_foreach(&table, count_entries, &count);
+    assert(count == 50);
+    
+    printf("[13] Test bucket_count...\n");
+    size_t nbuckets = dict_bucket_count(&table);
+    assert(nbuckets == 16); // Valeur par défaut
+    printf("    Nombre de buckets: %zu\n", nbuckets);
+    
+    printf("[14] Test dict_delete...\n");
+    dict_delete(&table);
+    assert(table.buckets == NULL);
+    assert(dict_length(&table) == 0);
+    
+    printf("\n✓ Tous les tests de closed sont PASSÉS sans erreur !\n");
+    return 0;
 }

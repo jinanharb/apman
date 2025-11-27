@@ -14,61 +14,39 @@ void      link_init( link_t *link )
 
   link->next = NULL;
   link->prev = NULL;
-  return;
 }
 
-void      deque_reset( deque_t *deque ) {
-  assert( deque && "deque head is NULL!" );
-
-  deque->head.next = NULL;
-  deque->head.prev = NULL;
-  deque->length    = 0;
-  deque->offset    = 0;
-
-  return;
+void deque_reset(deque_t *deque) {
+    assert(deque);
+    deque->head.next = &deque->head;
+    deque->head.prev = &deque->head;
+    deque->length = 0;
+    deque->offset = 0;
 }
 
 
-void      deque_addfront( deque_t *deque, link_t *link ){
-  assert( deque && "deque is NULL!" );
-  assert( link && "Link is NULL!");
-
-  if (deque->head.next != NULL) {
-        link->next = deque->head.next;           
-        link->prev = &deque->head;              
-        deque->head.next->prev = link;           
-    }
+void deque_addfront(deque_t *deque, link_t *link) {
+    assert(deque && "deque is NULL!");
+    assert(link && "Link is NULL!");
     
-  else {
-      link->next = NULL;  
-      link->prev = &deque->head;             
-  }
-
-  deque->length++;
-
-  return;
+    link->next = deque->head.next;
+    link->prev = &deque->head;
+    deque->head.next->prev = link;
+    deque->head.next = link;  
+    
+    deque->length++;
 }
 
-
-void      deque_addback( deque_t *deque, link_t *link ){
-  assert( deque && "deque is NULL!" );
-  assert( link && "Link is NULL!");
-
-  if (deque->head.next != NULL) {
-        link->next = NULL;           
-        link->prev = deque->head.prev;              
-        deque->head.prev->next = link;           
-    }
+void deque_addback(deque_t *deque, link_t *link) {
+    assert(deque && "deque is NULL!");
+    assert(link && "Link is NULL!");
     
-  else {
-      link->next = NULL;  
-      link->prev = &deque->head;  
-      deque->head.prev = link;           
-  }
-  deque->head.prev = link;
-  deque->length++;
-
-  return;
+    link->next = &deque->head;         
+    link->prev = deque->head.prev;    
+    deque->head.prev->next = link;     
+    deque->head.prev = link;           
+    
+    deque->length++;
 }
 
 

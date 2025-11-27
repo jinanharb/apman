@@ -43,12 +43,10 @@ void* deque_last(deque_t *deque);
 
 
 #define deque_foreach(deque_head_ptr, element) \
-  for ( void *element, *once = &once; once; once = NULL ) \
-    for ( link_t *link = (deque_head_ptr)->head.next, *next; \
-      link != &(deque_head_ptr)->head; \
+for ( link_t *link = (deque_head_ptr)->head.next, *next; \
+      link != &(deque_head_ptr)->head && (next = link->next, 1); \
       link = next ) \
-        for ( element = (char*)link - (deque_head_ptr)->offset, \
-          next = link->next; next || 1; )
+for ( void *element = (char*)link - (deque_head_ptr)->offset; element; element = NULL )
         
 #define   deque_pushfront( deque_ptr, object  )    \
   deque_addfront( deque_ptr, (link_t*)( (char*)(object) + (deque_ptr)->offset ) )

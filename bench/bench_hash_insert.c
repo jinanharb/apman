@@ -1,24 +1,28 @@
+#include <libellul.h>
+#include "benchmark.h"
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
-#include <stddef.h>
-#include <assert.h>
-#include <libellul.h>
-#include "benchmark.h"
-#include <string.h>
 
 /* ============================================
-   Closed entry struct
+   LINEAR hashtable (T is already a pointer!)
+   ============================================ */
+#define T_MAP_TAG dictlinear
+#define T_MAP_KEY int
+#define T_MAP_VALUE int
+#define T_MAP_HASHFUN(key) ((uint64_t)(key) * 11400714819323198485llu)
+#define T_IMPL_HASHTABLE_LINEAR
+#include <libellul/structure/hashtable/linear.h>
+
+/* ============================================
+   CLOSED hashtable
    ============================================ */
 typedef struct {
-    link_t link; // Must be first for deque
+    link_t link;
     int key;
     int value;
 } closed_entry_t;
 
-/* ============================================
-   Hash + equality functions for closed
-   ============================================ */
 size_t closed_map_hash(const int *key) {
     return (uint64_t)(*key) * 11400714819323198485llu;
 }
@@ -27,9 +31,6 @@ int closed_map_eq(const int *a, const int *b) {
     return *a == *b;
 }
 
-/* ============================================
-   Define closed hash table
-   ============================================ */
 #define T_CLOSED_TAG closed_map
 #define T_CLOSED_ENTRY closed_entry_t
 #define T_CLOSED_KEY int
@@ -37,63 +38,69 @@ int closed_map_eq(const int *a, const int *b) {
 #include <libellul/structure/hashtable/closed.h>
 
 /* ============================================
-   Benchmark for Linear Insert
+   Benchmarks
    ============================================ */
-double benchmark_linear_insert(size_t N) {
-    uint64_t t0 = get_time_nsec();
-    for(int run = 0; run < RUNS; run++) {
-        #define T_MAP_TAG dictlinear
-        #define T_MAP_KEY int
-        #define T_MAP_VALUE int
-        #define T_MAP_HASHFUN(key) ((uint64_t)(key) * 11400714819323198485llu)
-        #define T_IMPL_HASHTABLE_LINEAR
-        #include <libellul/structure/hashtable/linear.h>
-        
-        T map = dictlinear_new();
-        for (size_t key = 0; key < N; key++) {
-            dictlinear_put(&map, (int)key, (int)key);
-        }
-        dictlinear_delete(&map);
-        
-        #undef T_MAP_TAG
-        #undef T_MAP_KEY
-        #undef T_MAP_VALUE
-        #undef T_MAP_HASHFUN
-        #undef T_IMPL_HASHTABLE_LINEAR
+static int bench_linear(size_t N) {
+    dictlinear_t map = dictlinear_new();
+    for (size_t i = 0; i < N; i++) {
+        dictlinear_put(&map, (int)i, (int)i);
     }
-    uint64_t t1 = get_time_nsec();
-    return (double)(t1 - t0) / (RUNS * N);
+    int len = dictlinear_length(map);
+    dictlinear_delete(&map);
+    return len;
 }
 
-/* ============================================
-   Benchmark for Closed Insert
-   ============================================ */
-double benchmark_closed_insert(size_t N) {
-    uint64_t t0 = get_time_nsec();
-    for(int run = 0; run < RUNS; run++) {
-        closed_map_t map = closed_map_new();
-        
-        for(size_t key = 0; key < N; key++) {
-            closed_entry_t entry = { .key = (int)key, .value = (int)key };
-            closed_map_insert(&map, &entry);
-        }
-        
-        closed_map_delete(&map);
+static int bench_closed(size_t N) {
+    closed_entry_t *entries = malloc(N * sizeof(closed_entry_t));
+    closed_map_t map = closed_map_new();
+    
+    for (size_t i = 0; i < N; i++) {
+        entries[i].key = (int)i;
+        entries[i].value = (int)i;
+        closed_map_insert(&map, &entries[i]);
     }
-    uint64_t t1 = get_time_nsec();
-    return (double)(t1 - t0) / (RUNS * N);
+    
+    int len = closed_map_length(&map);
+    closed_map_delete(&map);
+    free(entries);
+    return len;
 }
 
-/* ============================================
-   Main
-   ============================================ */
-int main(void) {
-    printf("log2(N),linear(ns/op),closed(ns/op)\n");
-    for(size_t logN = LOG2_N_MIN; logN <= LOG2_N_MAX; logN++) {
-        size_t N = (size_t)1 << logN;
-        double t_linear = benchmark_linear_insert(N);
-        double t_closed = benchmark_closed_insert(N);
-        printf("%zu,%f,%f\n", logN, t_linear, t_closed);
+static void benchmark(size_t N, int runs) {
+    int s1, s2;
+
+    printf("%10zu\t,", N);
+    printf("%10zu\t,", N/2);
+
+    elapsed_nsec();
+    for (int run = 0; run < runs; run++)
+        s1 = bench_linear(N);
+    printf("%10.2g\t,", elapsed_nsec()/(runs*N));
+
+    elapsed_nsec();
+    for (int run = 0; run < runs; run++)
+        s2 = bench_closed(N);
+    printf("%10.2g\t,", elapsed_nsec()/(runs*N));
+
+    if (s1 != (int)N || s2 != (int)N) abort();
+}
+
+int main() {
+    fprintf(stderr, "INSERT: Linear vs Closed\n");
+    bench_linear(10);
+    bench_closed(10);
+
+    printf(" log2(N)   \t,  Op1      \t,  Op2      \t,  linear     \t, closed    \t\n");
+
+    for (size_t log2_N = LOG2_N_MIN; log2_N < LOG2_N_MAX + 1; log2_N++) {
+        size_t N = (size_t)1 << log2_N;
+        fprintf(stderr, "N = %zu\n", N);
+
+        printf("%10zu\t, ", log2_N);
+        benchmark(N, RUNS);
+        printf("\n");
     }
-    return 0;
+
+    fprintf(stderr, "--END--\n");
+    exit(EXIT_SUCCESS);
 }

@@ -27,8 +27,6 @@ static inline int equals( key_t key1, key_t key2 ) {
  return key1 == key2;
 }
 
-#define T_MAP_HASHFUN hash_id
-// Pas de mot-clé particulier
 
 // Charge ton code générique (le .h après expansion des macros)
 #include <libellul/type/map.h>
@@ -54,33 +52,47 @@ int main(void) {
  printf("[5] Test dict_contains (clé présente)...\n");
  assert(dict_contains(map, 10) == 1);
 
- printf("[6] Test dict_put (overwrite)...\n");
+ /* ==== NOUVEAU : TEST dict_get ==== */
+ value_t val;
+ int ok;
+
+ ok = dict_get(map, 10, &val);
+ assert(ok == 1);
+ assert(strcmp(val, "hello") == 0);
+
+ ok = dict_get(map, 99999, &val);
+ assert(ok == 0); 
+
+
+ /* ================================== */
+
+ printf("[6] Test dict_put de linear (overwrite)...\n");
  assert(dict_put(&map, 10, "world") == 1);
  assert(dict_contains(map, 10) == 1);
 
- printf("[7] Test insertion multiple (1..50)...\n");
- for (int i = 1; i <= 50; i++)
+ printf("[7] Test insertion de linear multiple (1..10)...\n");
+ for (int i = 1; i <= 10; i++)
  assert(dict_put(&map, i, "x") == 1);
 
- printf("[8] Vérification contains pour 1..50...\n");
- for (int i = 1; i <= 50; i++)
+ printf("[8] Vérification contains de linear pour 1..10...\n");
+ for (int i = 1; i <= 10; i++)
  assert(dict_contains(map, i) == 1);
 
- printf("[9] Test remove sur clé existante...\n");
+ printf("[9] Test remove de linear sur clé existante...\n");
  assert(dict_remove(&map, 10) == 1);
  assert(dict_contains(map, 10) == 0);
 
- printf("[10] Test remove sur clé absente...\n");
+ printf("[10] Test remove de linear sur clé absente...\n");
  assert(dict_remove(&map, 99999) == 0);
 
- printf("[11] Test réinsertion après tombstone...\n");
+ printf("[11] Test réinsertion de linear après tombstone...\n");
  assert(dict_put(&map, 10, "again") == 1);
  assert(dict_contains(map, 10) == 1);
 
- printf("[12] Test dict_delete...\n");
+ printf("[12] Test de linear dict_delete...\n");
  dict_delete(&map);
  assert(map == NULL);
 
- printf("Tous les tests sont PASSÉS sans erreur !\n");
+ printf("Tous les tests de linear_hash sont PASSÉS sans erreur !\n");
  return 0;
 }

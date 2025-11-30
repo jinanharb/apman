@@ -9,7 +9,7 @@
 #define EMPTY_KEY 0
 #define INITIAL_CAPACITY 16
 #define TOMBSTONE_KEY ((T_MAP_KEY) -1)
-#define T_MAP_HASHFUN 
+
 
 
 #if defined( T_MAP_EXPORT_DEFS ) || !defined( T_MAP_EXPORT_CODE )
@@ -152,17 +152,35 @@ T_MAP_INTERFACE int MAP_METHOD( put )( T *map, T_MAP_KEY key, T_MAP_VALUE value 
  return 0; // full
 }
 
-/*
-T_MAP_INTERFACE int MAP_METHOD( put )( T *map, T_MAP_KEY key, T_MAP_VALUE value ) {
- for (size_t i = 0; i < map->capacity; i++) {
- if (map->bucket[i] == key) {
- *value = map->value[i];
+T_MAP_INTERFACE int MAP_METHOD(get)(T map, T_MAP_KEY key, T_MAP_VALUE *value) {
+ if (!map || !map->bucket
+#ifndef T_SET_ELEMENT
+ || !map->value
+#endif
+ )
+ return 0;
+
+ size_t idx = T_MAP_HASHFUN(key) % TABLE_SIZE;
+
+ for (size_t i = 0; i < TABLE_SIZE; i++) {
+ if (map->bucket[idx] == EMPTY_KEY)
+ return 0; 
+
+ if (map->bucket[idx] == key) {
+#ifndef T_SET_ELEMENT
+ *value = map->value[idx];
+#endif
  return 1;
  }
+
+ idx = (idx + 1) % TABLE_SIZE;
  }
- return 0;
+
+ return 0; 
 }
- */
+
+
+ 
 #endif
 
 #endif

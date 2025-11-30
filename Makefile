@@ -25,7 +25,7 @@ LDFLAGS_ASAN=-fsanitize=undefined,address
 endif
 endif
 
-all: checks benchmarks report
+all: checks benchmarks report 
 
 CFLAGS_DBG=$(CFLAGS) -ggdb3 -gdwarf-4 $(CFLAGS_ASAN) #-DMEM_TRACE
 CFLAGS_REL=$(CFLAGS) -O3 -march=native -DNDEBUG
@@ -118,11 +118,35 @@ bench/%.csv : bench/%.bench bench/%.plt bench/benchmark.h
 	./$< > $@
 	gnuplot -c $(word 2,$^)
 
-benchmarks: lib $(BENCHMARKS) bench/common.plt bench/benchmark.h
+benchmarks: lib $(BENCHMARKS) bench/hashtable_benchmarks bench/common.plt bench/benchmark.h
 	@echo "All plots generated"
 
 benchmarks-clean:
 	$(RM) bench/*.csv bench/*.png
+
+
+#added lines for our own benchmarks
+bench/bench_linear.bench: bench/bench_linear.o.bench
+	$(CC) `./lib$(HEAD)-config --link --local` $< -o $@ `./lib$(HEAD)-config --link`
+
+bench/bench_robinhood.bench: bench/bench_robinhood.o.bench
+	$(CC) `./lib$(HEAD)-config --link --local` $< -o $@ `./lib$(HEAD)-config --link`
+
+bench/bench_closed.bench: bench/bench_closed.o.bench
+	$(CC) `./lib$(HEAD)-config --link --local` $< -o $@ `./lib$(HEAD)-config --link`
+
+bench/bench_linear.csv: bench/bench_linear.bench bench/benchmark.h
+	./$< > $@
+
+bench/bench_robinhood.csv: bench/bench_robinhood.bench bench/benchmark.h
+	./$< > $@
+
+bench/bench_closed.csv: bench/bench_closed.bench bench/benchmark.h
+	./$< > $@
+
+bench/hashtable_benchmarks: bench/bench_linear.csv bench/bench_robinhood.csv bench/bench_closed.csv bench/bench_hashtable.plt
+	gnuplot bench/bench_hashtable.plt
+	@echo "Hashtable benchmark plots generated"
 
 
 # All thinks TeX

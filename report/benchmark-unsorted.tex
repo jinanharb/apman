@@ -1,0 +1,61 @@
+\chapter{Maps for unsorted data}\label{chap:maps:unsorted}
+
+Hash tables are a standard data structure for storing key/value pairs when order is not important. We implemented three variants:
+
+\begin{enumerate}
+    \item Closed Addressing
+    \item Linear Probing
+    \item Robin Hood Hashing
+\end{enumerate}
+
+\section{Implementation}
+
+We implemented a generic C hashtable using the \texttt{libellul} library. Keys and values are 64-bit integers, and the table supports insertion, lookup, and deletion.
+
+\subsection{Closed Addressing}
+
+\begin{verbatim}
+// Example C code snippet for closed addressing
+T ht = dict_new();
+entry_t e = {.key = 42, .value = 100};
+link_init(&e.link);
+dict_insert(ht, &e);
+T_MAP_ENTRY *found = dict_find(ht, &e.key);
+dict_remove(ht, &e.key);
+dict_delete(ht);
+\end{verbatim}
+
+\subsection{Linear Probing}
+
+\begin{verbatim}
+// Similar setup for linear probing map
+dict_t map = dict_new();
+dict_put(&map, 42, 100);
+uint64_t val;
+dict_get(map, 42, &val);
+dict_remove(&map, 42);
+dict_delete(&map);
+\end{verbatim}
+
+\subsection{Robin Hood Hashing}
+
+\begin{verbatim}
+// Robin Hood variant example
+dict_t map = dict_new();
+dict_put(&map, 42, 100);
+uint64_t val;
+dict_get(map, 42, &val);
+dict_remove(&map, 42);
+dict_delete(&map);
+\end{verbatim}
+
+\section{Benchmarking}
+
+We benchmarked insertion, lookup, and deletion for varying sizes of keys. Each operation was timed over multiple runs to obtain average cost per operation.
+
+\begin{verbatim}
+// Benchmark code snippet
+benchmark_insert(N, RUNS);
+benchmark_find(N, RUNS);
+benchmark_remove(N, RUNS);
+\end{verbatim}

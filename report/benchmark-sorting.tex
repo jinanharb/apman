@@ -1,0 +1,84 @@
+\chapter{Array Performance Benchmarks}\label{chap:benchmark:sorting}
+
+Before benchmarking sorting routines themselves, it is instructive to evaluate the performance characteristics of the underlying dynamic array implementation, as sorting relies heavily on element access and manipulation. We measure the time taken for common array operations, including allocation, insertion, reading, writing, and removal.
+
+\section{Benchmark Setup}
+
+All benchmarks were performed using the dynamic array implementation described in Chap.~\ref{chap:heaps}. The following functions were benchmarked:
+
+\begin{itemize}
+    \item \texttt{array\_new(N, int)} -- allocate an array of size \texttt{N}.
+    \item \texttt{array\_push(\&arr, value)} -- append an element to the array.
+    \item Random reads from the array.
+    \item Random writes to the array.
+    \item \texttt{array\_pop(\&arr, \&x)} -- remove the last element.
+\end{itemize}
+
+The benchmarks were performed on arrays of size $N = 2^{\text{log2\_N}}$ with \texttt{log2\_N} ranging from \texttt{LOG2\_N\_MIN} to \texttt{LOG2\_N\_MAX}. Each test was repeated \texttt{RUNS} times to compute an average execution time in nanoseconds.
+
+\section{Benchmarking Methodology}
+
+A high-resolution timer (\texttt{elapsed\_nsec()}) was used to measure the duration of each operation. For reads, a \texttt{volatile int sink} variable was used to prevent compiler optimizations. For writes, random indices were used to simulate non-sequential access patterns.  
+
+The benchmarks include:
+
+\begin{enumerate}
+    \item \textbf{Allocation (new)}: time to allocate an array of size $N$.
+    \item \textbf{Push}: time to sequentially append $N$ elements to an initially empty array.
+    \item \textbf{Read}: time to access $N$ random elements.
+    \item \textbf{Write}: time to write to $N$ random positions.
+    \item \textbf{Pop}: time to remove all elements sequentially.
+\end{enumerate}
+
+\section{Results}
+
+Table~\ref{tab:array-benchmarks} summarizes the measured times.  
+
+\begin{table}[h!]
+\centering
+\caption{Average execution times (ns) for array operations.}
+\begin{tabular}{r|r|r|r|r|r}
+\textbf{log2(N)} & \textbf{N} & \textbf{new} & \textbf{push} & \textbf{read} & \textbf{pop} \\
+\hline
+0  & 1      & 37.9     & 36.5       & 38.7       & 23.4     \\
+1  & 2      & 27.2     & 57         & 49.3       & 25.1     \\
+2  & 4      & 25.4     & 73.6       & 78.3       & 32.4     \\
+3  & 8      & 25.9     & 157        & 136        & 47.7     \\
+4  & 16     & 25.5     & 207        & 253        & 82.2     \\
+5  & 32     & 26.5     & 377        & 487        & 157      \\
+6  & 64     & 29.2     & 582        & 956        & 303      \\
+7  & 128    & 26.2     & 869        & 1.9e+03    & 567      \\
+8  & 256    & 36.7     & 1.45e+03   & 4.46e+03   & 1.11e+03 \\
+9  & 512    & 155      & 2.83e+03   & 7.49e+03   & 3.5e+03  \\
+10 & 1024   & 41.9     & 7.96e+03   & 1.84e+04   & 4.55e+03 \\
+11 & 2048   & 292      & 1.07e+04   & 3.65e+04   & 1.29e+04 \\
+12 & 4096   & 288      & 3.39e+04   & 6.82e+04   & 2.5e+04  \\
+13 & 8192   & 892      & 5.01e+04   & 1.39e+05   & 3.68e+04 \\
+14 & 16384  & 314      & 7.9e+04    & 2.58e+05   & 7.7e+04  \\
+15 & 32768  & 1.31e+03 & 1.72e+05   & 5.04e+05   & 1.39e+05 \\
+\end{tabular}
+\label{tab:array-benchmarks}
+\end{table}
+
+
+Figure~\ref{fig:array-performance} visualizes the scaling behavior of these operations.
+
+\begin{figure}[h!]
+\centering
+\includegraphics[width=0.8\textwidth]{bench/array_performance.png}
+\caption{Benchmark results for dynamic array operations. Allocation, push, and pop times are shown as a function of array size.}
+\label{fig:array-performance}
+\end{figure}
+
+\section{Discussion}
+
+The results demonstrate the expected time complexity of common array operations:
+
+\begin{itemize}
+    \item Allocation (\texttt{new}) scales linearly with the number of elements.
+    \item Sequential \texttt{push} operations are efficient, benefiting from amortized constant-time insertions due to dynamic resizing.
+    \item Random reads and writes show constant-time access as expected for a contiguous memory array.
+    \item Sequential \texttt{pop} operations mirror the push behavior in reverse, confirming efficient memory management.
+\end{itemize}
+
+These benchmarks provide a baseline for subsequent sorting experiments. Since sorting routines frequently read, write, and swap elements, understanding the raw array performance helps explain the observed sorting times.

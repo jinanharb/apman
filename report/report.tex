@@ -1,0 +1,190 @@
+\documentclass[a4paper,notitlepage]{report}
+
+\newcommand{\authorOne}   {Jinan \textsc{HARB}}
+\newcommand{\authorTwo}   {Manuela \textsc{Furlani da Silva Soares}}
+\newcommand{\authorThree} {Meriem \textsc{Smaali}}
+
+\input{report/preamble.tex}
+
+%======================== DEBUT DU DOCUMENT ========================
+
+\begin{document}
+
+\author{\authorOne, \authorTwo, \authorThree}
+\title{Phelma {SEOC} 2A {APMAN} Report}
+
+\hypersetup{pageanchor=false}
+\begin{titlepage}
+  \maketitle
+
+  \begin{abstract}
+
+    Your names must appear in alphabetical order.
+
+    You must create a Git repository on \href{https://gitlab.ensimag.fr}{\texttt{gitlab.ensimag.fr}}. Use any of your accounts.
+
+    The name of your repository must include your logins in alphabetical order:
+
+    \hspace{3cm}\texttt{apman\_login1\_login2\_login3}
+
+    Make sure you made your teachers members of your repository. 
+
+    You may write your report in French (see line 6 in \texttt{report/preamble.tex}) or in English.
+
+    This abstract should list what you did, how, the state of your code and your broad conclusions.
+  \end{abstract}
+
+\end{titlepage}
+\hypersetup{pageanchor=true}
+
+\tableofcontents
+
+\listoffigures
+\listof{code}{List of Codes}
+
+%====================== INCLUSION DES PARTIES ======================
+
+\input{report/introduction.tex}
+
+\part{Abstract data types}
+
+\input{report/arrays.tex}
+
+\input{report/linear.tex}
+
+\input{report/maps.tex}
+
+
+\part{Data structures: Unsorted data}
+
+\input{report/deques.tex}
+
+\input{report/hashtables.tex}
+
+\input{report/hashtables-closed.tex}
+
+\input{report/hashtables-open.tex}
+
+\input{report/hashtries.tex}
+
+
+\part{Data structures: Sorted data}
+
+\input{report/bsearch.tex}
+
+\input{report/bst.tex}
+
+\input{report/heaps.tex}
+
+\input{report/sort.tex}
+
+
+\part{Benchmarks}
+
+\input{report/benchmark.tex}
+
+\input{report/benchmark-unsorted.tex}
+
+\input{report/benchmark-sorted.tex}
+
+\input{report/benchmark-sorting.tex}
+
+
+\appendix
+
+\input{report/app.tex}
+
+
+%======================== WHO DID WHAT ========================
+
+\chapter{Who did what?}
+
+%-------------------------------------------------------------
+\section{Jinan HARB}
+
+\subsection{What I did}
+
+\begin{itemize}
+  \item Implemented arrays and their tests (\texttt{01-array.c}) — collaborative work.
+  \item Implemented deques and their tests (\texttt{02-deques.c}) — collaborative work.
+  \item Developed closed-addressing hashtables (\texttt{hashtables\_closed.c}) and their associated tests (\texttt{test\_closed.c}).
+  \item Implemented hashtable benchmark programs: 
+    \begin{itemize}
+      \item \texttt{bench\_closed.c}
+      \item \texttt{bench\_robinhood.c}
+      \item \texttt{bench\_linear.c}
+      \item \texttt{benchmark.h}
+      \item Array benchmark: \texttt{bench\_array.c}
+    \end{itemize}
+  \item Added my contributions to the written report.
+\end{itemize}
+
+\subsection{What I learned}
+
+This project really helped me get a deeper understanding of coding in C. Implementing arrays, deques, and different types of hashtables made me see how different data structures actually work and how their design affects performance. Implementing benchmarks taught me how to measure efficiency, find performance issues, and test code properly.
+
+I also learned a lot about organizing code, using headers and separate files to keep things clean.  
+
+On top of coding, being part of the project coordination and contributing to the report helped me improve how I plan work, communicate with the team, and keep everyone on the same page. Overall, I feel like I really leveled up both in practical coding skills and in understanding how to structure and manage a programming project.
+
+
+%-------------------------------------------------------------
+\section{Manuela Furlani da Silva Soares}
+
+\subsection{What I did}
+
+\begin{itemize}
+  \item Implemented arrays and their tests (\texttt{01-array.c}) — collaborative work.
+  \item Implemented deques and their tests (\texttt{02-deques.c}) — collaborative work.
+  \item Implemented the Robin-Hood open-addressing hashtable variant and its tests.
+  \item Implemented the concrete \texttt{int\_set} type on top of the generic map/set templates and wrote a small test suite for it.
+  \item Implemented linear containers on top of existing primitives:
+    \begin{itemize}
+      \item stacks from dynamic arrays;
+      \item stacks and queues from intrusive deques;
+      \item tests for these structures in \texttt{test\_linear.c}.
+    \end{itemize}
+  \item Implemented the benchmarks to the linear part.
+  \item Implemented a benchmark comparing stacks implemented with dynamic arrays and stacks implemented with deques (same timing infrastructure as the hashtable benchmarks).
+  \item Contributed to the written report.
+\end{itemize}
+
+\subsection{What I learned}
+
+\begin{itemize}
+  \item Learned a lot about language C, since it was my first contact with the language. 
+  \item From the collaborative work on arrays, I learned how to design a generic dynamic array in C using a hidden header (storing length, allocated size, element size and a strict flag).
+  \item From the collaborative implementation of deques, I learned how intrusive doubly-linked lists work, how to use an anchor node plus an \texttt{offsetof}-based offset to recover user nodes, and how this design gives constant-time operations at both ends.
+  \item How to use the generic map/set templates to instantiate concrete types such as \texttt{int\_set}, and to test them systematically.
+  \item The main trade-offs between different open-addressing strategies, in particular the behaviour of Robin-Hood hashing compared to simple linear probing.
+  \item How to build stacks and queues on top of dynamic arrays and intrusive deques, and how to validate them using the common unit test framework.
+  \item How to interpret benchmark results when comparing multiple implementations under the same interface.
+\end{itemize}
+
+
+%-------------------------------------------------------------
+\section{Meriem Smaali}
+
+\subsection{What I did}
+
+\begin{itemize}
+  \item Collaborative implementation of arrays and their tests (\texttt{01-array.c}).
+  \item Collaborative implementation of deques and their tests (\texttt{02-deques.c}).
+  \item Implementation of linear probing hashtables and associated tests.
+  \item Implementation of the hashtrie structure and its integration into the MAP interface and initial benchmark attempts.
+  \item Implementation of the binary search map (\texttt{Binary\_search\_map.h}).
+  \item Implemented or contributed to multiple benchmark programs.
+  \item Contributed to the writing of the report.
+  \item Took the role of project coordinator for the group: organized meetings, managed the workflow, and ensured that the team remained synchronized throughout the project.
+\end{itemize}
+
+\subsection{What I learned}
+
+During this project, I learned how to implement several abstract data types and how to structure them cleanly in C. Working with macros and the generic MAP interface helped me understand how to write reusable code without repeating the same implementation for each key/value type. This was new to me and taught me how powerful—and sometimes tricky—the C preprocessor can be.
+
+By implementing arrays, deques, linear probing, open-addressing hashtables, hashtries, and the binary search map, I improved my understanding of memory management, pointer safety, and the importance of choosing the right data structure for each operation. I also learned how to build and run benchmarks, even if I could not fully fix the issue in the hashtrie benchmark despite several debugging attempts.
+
+
+\printbibliography
+
+\end{document}

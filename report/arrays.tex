@@ -1,0 +1,110 @@
+\chapter{Arrays}\label{chap:arrays}
+
+
+\section{Design rationale}
+
+The \texttt{array} module provides dynamic arrays while preserving the familiar syntax and
+usage of native C arrays. From the user's perspective, an array remains a simple pointer of
+type \texttt{T *}:
+\begin{lstlisting}[style=C]
+int *a = array(int);              /* initially empty */
+double *b = array_new(16, double);/* variable-length, 16 slots */
+\end{lstlisting}
+
+\subsection{Internal representation}
+
+To support variable-length behaviour, each array embeds a hidden header located immediately
+before the user-visible pointer. The allocated memory block is structured as follows:
+
+\begin{center}
+\verb|[ array_header_t ][ element 0 ][ element 1 ] ... |
+\end{center}
+
+The header stores:
+\begin{itemize}
+    \item the current logical length,
+    \item the allocated capacity,
+    \item the element size in bytes,
+    \item a flag distinguishing strict (fixed-size) arrays from resizable ones.
+\end{itemize}
+
+Recovering the header is done internally by stepping back one header-sized block from the
+user pointer. All public operations, in contrast, manipulate only \texttt{T *} values, keeping the
+abstraction transparent for users.
+
+\subsection{Memory management strategy}
+
+All memory allocation is handled by the internal constructor:
+\begin{lstlisting}[style=C]
+void *array_new__(size_t nmemb, size_t size, int strict);
+\end{lstlisting}
+
+This function allocates both the header and the initial number of data slots. For dynamic
+arrays, resizing follows an amortized allocation strategy: instead of re-allocating on every
+insertion, the module grows the capacity by multiplying the requested size by the geometric
+factor \texttt{ARRAY\_ALLOC\_GEOM} (written as \(\approx 1.3\)) and enforcing a minimal
+starting capacity. This approach reduces the number of allocations and ensures average
+constant-time insertion.
+
+When additional capacity is required, the function \texttt{array\_resize\_\_} reallocates the
+entire block, updates the header, and returns the new user pointer. In strict mode,
+reallocation never increases the capacity; the array remains permanently bounded.
+
+\subsection{High-level operations}
+
+All high-level operations are implemented on top of the internal resizing mechanism.
+The public macro \texttt{array\_resize} forwards the call to \texttt{array\_resize\_\_}, taking the
+address of the user pointer so it can be updated after reallocation.
+
+Similarly, stack-like operations are provided through macros:
+\begin{itemize}
+    \item \texttt{array\_push}: increases the logical length by one and writes the new element;
+    \item \texttt{array\_pop}: copies the last element to a user variable and decrements the length.
+\end{itemize}
+
+Deletion is explicit: \texttt{array\_delete} wraps the internal \texttt{array\_delete\_\_}
+function, freeing the entire header+data block and setting the user pointer to \texttt{NULL} to
+avoid dangling references.
+
+\section{Array interface}
+\label{arrays:interface}
+
+The public interface of the module is shown in
+Listing~\ref{arrays:interface}. The core constructor is the internal function:
+
+\begin{lstlisting}[style=C]
+void *array_new__(size_t nmemb, size_t size, int strict);
+\end{lstlisting}
+
+It takes three parameters:
+\begin{itemize}
+    \item the initial number of elements,
+    \item the size in bytes of each element,
+    \item a flag indicating whether the array is strict (fixed-size) or resizable.
+\end{itemize}
+
+\subsection{Constructors}
+
+Three macros form the user-level API:
+\begin{itemize}
+    \item \texttt{array\_strict(N, T)} creates fixed-size arrays,
+    \item \texttt{array\_new(N, T)} creates resizable arrays with an initial capacity,
+    \item \texttt{array(T)} creates an initially empty resizable array.
+\end{itemize}
+
+\subsection{Destruction}
+
+The destructor \texttt{array\_delete} is a thin wrapper around \texttt{array\_delete\_\_}.  
+It receives the address of the array pointer, frees the underlying block starting at the header,
+and sets the pointer to \texttt{NULL}.
+
+\subsection{Queries and updates}
+
+The function \texttt{array\_length} returns the logical length, while the macro
+\texttt{array\_is\_empty} simply checks for zero length.
+
+Resizing and stack operations are built on the internal \texttt{array\_resize\_\_} function.
+The macro \texttt{array\_resize(array\_ptr, nmemb)} exposes this functionality, correctly
+updating the caller's pointer. The macros \texttt{array\_push} and \texttt{array\_pop} provide
+convenient stack-like operations while maintaining the abstraction that the user manipulates
+only plain pointer types.

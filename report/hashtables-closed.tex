@@ -1,0 +1,51 @@
+\chapter{Hashtables: Closed Addressing}\label{chap:hashtables:closed}
+
+Closed addressing hashtables handle collisions by storing all colliding key/value pairs in a list (or other linear container) associated with each bucket. An important variant is the Move-to-Front strategy, which moves a key to the front of its collision list after each successful lookup to optimize repeated access to the same key.
+
+\section{Design Rationale}
+
+The design uses an array of \texttt{deque\_t} structures to represent buckets. Each bucket maintains a linked list of entries. This approach preserves insertion order and allows efficient insertions, deletions, and lookups.
+
+Key design points:
+\begin{itemize}
+    \item Collision handling using linked lists (closed addressing)
+    \item Reuse of existing list structures (\texttt{deque\_t})
+    \item Optional Move-to-Front optimization for frequent lookups
+    \item Templated for generic key/value types using \texttt{\#define} macros
+\end{itemize}
+
+\section{Implementation}
+
+The main functions implemented are:
+
+\begin{itemize}
+    \item \texttt{new}: Allocate and initialize the hash table
+    \item \texttt{delete}: Free all allocated memory
+    \item \texttt{insert}: Add a key/value pair or update an existing key
+    \item \texttt{find}: Retrieve an entry by key
+    \item \texttt{remove}: Remove a key/value pair
+    \item \texttt{foreach}: Apply a function to all entries
+    \item \texttt{length} and \texttt{bucket\_count}: Query the table size and number of buckets
+\end{itemize}
+
+\section{Code Example}
+
+\begin{verbatim}
+// Creating a new hash table
+T ht = CLOSED_METHOD(new)();
+
+// Inserting a key/value pair
+T_MAP_ENTRY entry = { .key = someKey, .value = someValue };
+CLOSED_METHOD(insert)(ht, &entry);
+
+// Finding a value
+T_MAP_ENTRY* found = CLOSED_METHOD(find)(ht, &someKey);
+if (found) { printf("Found value: %d\n", found->value); }
+
+// Removing a key
+CLOSED_METHOD(remove)(ht, &someKey);
+
+// Deleting the table
+CLOSED_METHOD(delete)(ht);
+\end{verbatim}
+

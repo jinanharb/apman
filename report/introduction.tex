@@ -1,0 +1,62 @@
+\chapter*{Introduction}\label{chap:introduction}
+
+Data structures form the foundation of efficient algorithm design and software systems. The choice of an appropriate data structure—whether for sequential access, associative lookup, or set membership testing—directly impacts program performance, memory usage, and code maintainability. This project presents a comprehensive implementation and evaluation of fundamental data structures within the \texttt{libellul} C library framework.
+
+\section*{Project Scope}
+
+Our work encompasses the design, implementation, testing, and benchmarking of essential data structures for systems programming in C. The \texttt{libellul} library provides generic, template-based implementations that leverage C preprocessor macros to achieve type-safe polymorphism without runtime overhead. This approach enables the creation of reusable, high-performance components suitable for a wide range of applications.
+
+The project consists of several key components:
+
+\subsection*{Data Structure Implementations}
+
+We have implemented a comprehensive suite of fundamental data structures:
+
+\begin{itemize}
+    \item \textbf{Dynamic Arrays}: Resizable arrays with amortized constant-time append operations, supporting both strict and geometric allocation strategies. These provide efficient sequential access with automatic memory management.
+    
+    \item \textbf{Doubly-Linked Deques}: Intrusive doubly-linked lists enabling efficient insertion and removal at both ends. The implementation uses offset-based techniques to embed link fields within user-defined structures.
+    
+    \item \textbf{Hash Tables}: Multiple collision resolution strategies including:
+    \begin{itemize}
+        \item \emph{Linear Probing}: Open addressing with sequential probing
+        \item \emph{Robin Hood Hashing}: Variance-reducing open addressing
+        \item \emph{Closed Addressing}: Chaining with deque-based buckets
+    \end{itemize}
+    
+    \item \textbf{Hash Tries}: Hierarchical hash structures for persistent and immutable associative containers (implementation in progress).
+    
+    \item \textbf{Maps and Sets}: High-level abstractions built upon the hash table implementations, providing key-value associations and membership testing with customizable hash functions and equality predicates.
+\end{itemize}
+
+\subsection*{Testing and Validation}
+
+Each data structure is validated through a comprehensive test suite built on the \texttt{libellul} unit testing framework. Our testing methodology includes:
+
+\begin{itemize}
+    \item \textbf{Property-Based Testing}: Verification of fundamental properties (e.g., arrays maintain insertion order, deques support bidirectional iteration, hash tables preserve all inserted keys).
+    
+    \item \textbf{Contract Testing}: Systematic validation of preconditions and postconditions using assertion-based checks and abort testing.
+    
+    \item \textbf{Oracle Testing}: Output validation against expected results, with support for both inline and file-based test oracles.
+    
+    \item \textbf{Memory Safety}: Integration with AddressSanitizer (ASan) and LeakSanitizer (LSan) to detect memory errors and leaks during test execution.
+\end{itemize}
+
+\subsection*{Performance Benchmarking}
+
+We conducted systematic performance evaluation of critical components:
+
+\begin{itemize}
+    \item \textbf{Array Benchmarks}: Comparison of heap-allocated versus stack-allocated arrays, measuring cache effects and allocation overhead across problem sizes.
+    
+    \item \textbf{Hash Table Benchmarks}: Comprehensive evaluation of the three collision resolution strategies (linear probing, Robin Hood, closed addressing) across insert, find, and remove operations. Measurements are normalized per element and plotted as functions of problem size ($\log_2 N$) to reveal algorithmic scaling behavior.
+\end{itemize}
+
+\section*{Methodology}
+
+Our implementation follows rigorous software engineering practices throughout the development lifecycle. The \texttt{libellul} library employs C preprocessor templating to provide generic data structures without sacrificing type safety or performance. Each data structure is instantiated through macro-based templates that generate specialized code for user-defined types, enabling zero-cost abstraction similar to C++ templates.
+
+The development workflow integrates automated build systems (Make), comprehensive testing with the custom \texttt{unitest} framework, and performance visualization through gnuplot. All implementations are validated under AddressSanitizer instrumentation to ensure memory safety, and tests include both automated regression suites and interactive debugging support through GDB integration.
+
+Benchmarking follows scientific methodology: we pre-generate random data, warm up the system, measure normalized execution times across logarithmically-spaced problem sizes, and visualize results with publication-quality plots. Each benchmark runs multiple iterations to reduce measurement variance, and timing measurements use high-resolution monotonic clocks for accuracy.

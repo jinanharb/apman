@@ -1,0 +1,305 @@
+\chapter{Common C idioms}
+
+We list in this chapter common idioms in C. These idioms are intended to make you focus on real features of your code, not spending your life chasing obvious segfaults. 
+
+When we write \texttt{function(number)}, it means that if you want to know what we are talking about, you should get help from the manual in your terminal:
+\begin{lstlisting}[language=bash]
+man number function
+\end{lstlisting}
+
+Nobody will answer questions like "What does \texttt{function}` do?" -- except maybe with "\href{https://en.wikipedia.org/wiki/RTFM}{RTFM}!"
+
+The \texttt{number} is usually \texttt{3} or \texttt{2} in this course (these are the relevant sections of the manual for the standard library and system interface, respectively).
+
+
+\section{Shortcuts of logical operators}
+
+One easy way to avoid a few segfaults is to make sure you are not accessing some \texttt{struct} field behind a \texttt{NULL} pointer. For instance, let:
+\begin{lstlisting}[style=C]
+#include <assert.h>
+#include <stdlib.h>
+#include <stdio.h>
+
+typedef struct {
+  char   *name;
+  double  height;
+  size_t  age;
+} *my_struct_t;
+
+int main () {
+  my_struct_t data = NULL;
+
+  assert( data && data->name );
+  printf( "Name = %s\n", data->name );  
+
+  exit( EXIT_SUCCESS );
+}
+\end{lstlisting}
+
+Observe how the \texttt{\&\&} operator will shortcut in the \texttt{assert(3)}, so a wrongful access to \texttt{data->name} in the assertion is not even attempted.
+
+Many variations are used throughout this course, that also include the \texttt{||} operator (which does not attempt to evaluate its second operand if the first has already been evaluated to be true). This is especially useful when writing macros.
+
+\section{More useful assertions}
+
+Use \texttt{assert(3)} to ensure pre/post-conditions are met upon entry/exit of a function. Errors should be caught as soon as possible, before they propagate. Sometimes the condition to be asserted is not obvious, so you can use a direct application of the above to write more informative assertions like:
+\begin{lstlisting}[style=C]
+int main () {
+  my_struct_t data = NULL;
+
+  assert( data && data->name && "Missing data or name" );
+  printf( "Name = %s\n", data->name );  
+
+  exit( EXIT_SUCCESS );
+}
+\end{lstlisting}
+
+The \texttt{\&\&} operator will shortcut before attempting to evaluate the string \texttt{"Missing data or name"} (which is evaluated as the non-\texttt{NULL} address of a constant string, hence the string is true). But since \texttt{assert(3)} will print the whole assertion, including the string because it is part of it, you get more informative messages on failed assertions for free. 
+
+\section{Ternary? operator: explained}
+
+A compact \texttt{if( [TEST] ) { [CONSEQUENCE] } else { [ALTERNATIVE] }} construct is sometimes written as a one-liner with the ternary operator \texttt{[TEST] ? [CONSEQUENCE] : [ALTERNATIVE]}.
+
+The above could be rewritten so as to not abort like:
+\begin{lstlisting}[style=C]
+int main () {
+  my_struct_t data = NULL;
+
+  printf( "Name = %s\n", (data && data->name) ? data->name : "**Error** Missing data or name" );
+
+  exit( EXIT_SUCCESS );
+}
+\end{lstlisting}
+
+\section{Comma}
+
+The comma operator in C (\texttt{,}) is used to execute statements in sequence. It evaluates to the result of the last expression in the sequence. For example:
+\begin{lstlisting}[style=C]
+  int a = ( printf( "Guess who's back?\n" ) , 2+5 );
+\end{lstlisting}
+
+will store \texttt{7} in variable \texttt{a} \textit{after} the \texttt{printf(3)} has been executed. Quite useful for debugging macros. Or even for writing them. 
+
+\section{Macros... or not?}
+
+Macros are introduced with the \texttt{\#define} preprocessor directive. The are expanded \textit{before} the compiler is actually called. They may be used to define constants or to locally tailor source code for various use cases.
+
+The common wisdom is that macros that define constants should be written with capital letters like:
+\begin{lstlisting}[style=C]
+#define MY_CONSTANT 42
+\end{lstlisting}
+
+Macros for tailoring code may be written in lowercase (think of the \texttt{assert(3)} \textit{macro}!), and uppercase should be used in local code (lowercase should be reserved for such macros exported in header files). 
+
+The following is an attempt for a reasonable use of macros. Because one of their main danger lies in using them all over the place. 
+
+\subsection{You have been warned}
+
+Their other main danger is that they may introduce unwanted side effects. Imagine we have the following macro to compute the absolute value:
+\begin{lstlisting}[style=C]
+#define ABS(x) ( (x) < 0 ? -(x) : (x) )
+\end{lstlisting}
+
+Now let \texttt{int v = -2 , w = ABS( ++v );}. The expected value of \texttt{w} would be \texttt{1} (absolute value of \texttt{-1}). But the macro will be expanded to:
+\begin{lstlisting}[style=C]
+int v = -2 , w = ( (++v) < 0 ? -(++v) : (++v) );
+\end{lstlisting}
+
+The test of the ternary operator would increment the value of \texttt{v}, but \texttt{v} would \textit{also} be incremented in the \texttt{-(++v)} part of the ternary operator, leading to \texttt{w} having value of \texttt{0}. 
+
+Never use a macro with side effects.
+
+Also, there is the possibility that the user will feed your macro with fancy expressions as parameters. As a good default rule, surround your macro parameters with parentheses in the expansion expression. 
+
+\subsection{Constant macros and the compiler}
+
+Macros may or may not be defined, and they may or may not have an associated value. Imagine our \texttt{code.c} uses some block size value \texttt{BLK\_SZ}. We may provide some safe fallback inside \texttt{code.c} in case it is not defined:
+\begin{lstlisting}[style=C]
+#if !defined BLK_SZ
+#define BLK_SZ 1024
+#endif
+\end{lstlisting}
+
+If the default value is fine, then we may simply compile like:
+\begin{lstlisting}[language=bash]
+cc code.c -c
+\end{lstlisting}
+
+If, however, we want a custom value, we can pass it to the compiler like:
+\begin{lstlisting}[language=bash]
+cc -DBLK_SZ=2048 code.c -c
+\end{lstlisting}
+
+\subsection{Constant macros \textit{vs}. \texttt{enum}'s, passing option flags}
+
+Macros defining integer constants should be reserved for the use cases above. For constants that are truly local to the code, prefer using an \texttt{enum}. Imagine we want to implement read/write/execute permissions on our block. We could use the following:
+\begin{lstlisting}[style=C]
+enum { BLK_READ = 0x1, BLK_WRITE = 0x2, BLK_EXECUTE = 0x4 };
+\end{lstlisting}
+
+Observe that we can set arbitrary integer values to \texttt{enum} members. We used hexadecimal because it's then easier to describe option flags that we may want to combine by passing them in one integer parameter:
+\begin{lstlisting}[style=C]
+int block_set_perms( blk_t *blk, int perms ) {
+    blk->perms = perms;
+}
+
+int block_fprint_perms( FILE *fp, blk_t *blk ) {
+    int nchars = 0;
+    nchars += fprintf( fp, "%c", blk->perms & BLK_READ    ? 'r' : '-' );
+    nchars += fprintf( fp, "%c", blk->perms & BLK_WRITE   ? 'w' : '-' );
+    nchars += fprintf( fp, "%c", blk->perms & BLK_EXECUTE ? 'x' : '-' );
+    return nchars;
+}
+\end{lstlisting}
+
+To set read and write permissions, we would then write:
+\begin{lstlisting}[style=C]
+block_set_perms( &blk, BLK_READ | BLK_WRITE );
+\end{lstlisting}
+
+\subsection{Introducing local scopes}
+
+In case you need a local scope in which you could declare variables, the following idiom is a classic:
+\begin{lstlisting}[style=C]
+do { /* variables decl. and code */ } while ( 0 );
+\end{lstlisting}
+Variants follow, that are more fit to implement visitor macros (because the trailing \texttt{while ( 0 )} gets in the way of clearer code). 
+
+Now suppose your macro needs some local variable(s). Use a \texttt{for} construct that is guaranteed to loop only once. Let's start with an integer:
+\begin{lstlisting}[style=C]
+for ( int my_local_integer , once = 1 ; once ; once-- )
+\end{lstlisting}
+
+The same may be done with pointers (see below for another variant with pointers):
+\begin{lstlisting}[style=C]
+for ( int *my_local_int_pointer , **once = &my_local_int_pointer ; once ; once = NULL )
+\end{lstlisting}
+
+Since each \texttt{for} construct introduces a new local lexical scope, the identifier \texttt{once} may be used everytime. Each \texttt{for} construct may introduce several local variables of the same base type. Use as many \texttt{for} constructs as different types of local variables are needed. This is most useful for \texttt{foreach}-like macros that would iterate over some data structure. 
+
+A macro may be defined on several lines, that must then end with a \texttt{\textbackslash}. We may therefore write:
+\begin{lstlisting}[style=C]
+#define MY_MACRO( foo ) \
+  for ( int my_integer , once = 1 ; once ; once = 0 )
+\end{lstlisting}
+
+Useful constructs can be achieved by leveraging the builtin shortcuts of
+logical operators:
+\begin{lstlisting}[style=C]
+#define MY_CUSTOM_FOR( integer_ptr , min , max , curr ) \
+  for ( int *elem_ptr , *once = 1+(int*)NULL ; once ; once = NULL ) \
+    for ( elem_ptr = integer_ptr + min ; integer_ptr && min < max && elem_ptr < integer_ptr + max && ( curr = *elem_ptr || 1 ) ; elem_ptr++ )
+\end{lstlisting}
+
+The second \texttt{for} loop above is the one that we are really interested in. Observe how we ensure its body will \textit{not} be entered if \texttt{integer\_ptr} is \texttt{NULL} or if \texttt{min >= max}. The value of \texttt{current} is only set after these conditions are ensured. In order to keep in the loop even if it is zero, we use a logical or (\texttt{||}) that will always evaluate to true. We may then call it like:
+\begin{lstlisting}[style=C]
+int array[ 42 ];
+int current;
+
+MY_CUSTOM_FOR( array , 10 , 22 , current ) {
+    printf( "Current array value: %d\n", current );
+}
+\end{lstlisting}
+
+\subsection{X-Macros}
+
+The socalled X-macros are macros that expect external symbols to be defined before they are loaded. One application is to build quick and uniform serialization routines~\cite[\href{https://en.wikibooks.org/wiki/C_Programming/Preprocessor_directives_and_macros\#X-Macros}{X-macros}]{wb:C}. We shall use extensively this idea when we introduce code templating in Sec.~\ref{gen:templating}.
+
+\section{Common integer manipulations}
+
+Much more recipes like the two below are described elsewhere~\cite{anderson:bit:twiddling}~\cite{warren:2002}. 
+
+\subsection{Checking that an integer is a power of two}
+
+Let \texttt{int i = /* some value */;}. To check whether \texttt{i} is a (strictly positive) power of two, use the following macro:
+\begin{lstlisting}[style=C]
+#define INT_IS_POWER_OF_TWO( value ) ( (value) > 0 && ( (value) & ( (value) - 1 ) ) )
+\end{lstlisting}
+
+\subsection{Number of blocks for data of given size}
+
+Oftentimes, one needs to know how many blocks of size \texttt{BLK\_SZ} bytes are needed to accomodate \texttt{len} bytes of data. A macro using integer arithmetics for that is:
+\begin{lstlisting}[style=C]
+#define NBLOCKS( len, BLK_SZ ) ( ( (len) + (BLK_SZ) - 1 ) / (BLK_SZ) )
+\end{lstlisting}
+
+\section{Doing math on address values}
+
+When you want to convert pointer values to an integer type so you can do math on it, convert your pointer to \texttt{uintptr\_t}. Then convert back to your pointer type of choice once your computation is done. Now for a totally useless example, let:
+\begin{lstlisting}[style=C]
+#include <stdint.h>
+#include <stdlib.h> /* exit(3), EXIT_SUCCESS */
+
+int main () {
+  char           *str = "This is a constant string";
+  uintptr_t ptr_value = (uintptr_t)str;
+
+  ptr_value /= 2;
+
+  str = (char*)ptr_value;
+
+  /* Segfault is looming if trying to print 'str' now... */
+
+  exit( EXIT_SUCCESS );
+}
+\end{lstlisting}
+
+These types are available upon a \texttt{\#include <stdint.h>} and this header also gives you access to useful integers of specified length like \texttt{uint8\_t} up to \texttt{uint64\_t}. Signed versions are also available as \texttt{int8\_t} and so on. 
+
+Note that \texttt{stdint.h} will include \texttt{stddef.h}, which defines \texttt{NULL}, \texttt{size\_t} and a bunch of other useful stuff (so we can avoid including the bigger \texttt{stdlib.h} more often).
+
+\section{From pointer tagging to NaN-boxing}
+
+It is not uncommon to have a few bits of meta-information to be added to some pointer value.\footnote{Imagine we have three bits of meta-information. Among many other examples, we could imagine to mark a pointer as being the address of one of $2^3$ possible data types (for more zero bits and types, use \texttt{posix\_memalign(3)} with a bigger alignment), we could mark a pointer as ``in-use'' (typically when implementing a garbage collector), Red-Black trees need two bits to encode their ``color'', \textit{etc.}} By default, \texttt{malloc(3)} and friends will return an address that is suitably aligned for any C builtin type. The largest one being \texttt{double} (8 bytes), it follows that every valid address ever used by \texttt{malloc()} will have its three lowest bits at zero.
+
+Pointer tagging is a direct application of the above where these zero \texttt{malloc()} address bits are set to any more useful value, and obviously zeroed upon accessing the actual address. It may be implemented in a few macros like:
+\begin{lstlisting}[style=C]
+#define PTR_VALUE( ptr )      ( (uintptr_t)(ptr) & 0xfffffffffffffff8 )
+/* Interface: Read (generic) address or tag value from pointer */
+#define PTR_ADDR( ptr )       ( (void*)PTR_VALUE( ptr ) )
+#define PTR_TAG( ptr )        ( (uintptr_t)(ptr) & 0x0000000000000007 )
+/* Interface: Set pointer tag */
+#define PTR_MARK( ptr, tag )  PTR_ADDR( PTR_VALUE( ptr ) | PTR_TAG(tag) )
+\end{lstlisting}
+
+For instance, one would then have to write \texttt{free( PTR\_ADDR( ptr ) )} so the lowest bits of the pointer address are correctly reset before the call to \texttt{free()}.
+
+Of course this introduces a small constant overhead, but the only alternative is to use a structure with explicit metadata---which is heavy and will use at least four additional bytes for C structure fields alignment reasons.
+
+Note that similar hacking of builtin types internal representation includes the infamous NaN-boxing trick~\cite{duperas:nan:boxing}\cite[\href{https://craftinginterpreters.com/optimization.html}{Optimization}]{nystrom:interpreters}. This time, the socalled ``quiet Not-a-Number'' condition of a \texttt{double} is leveraged to \textit{also} allow the representation of pointers and medium-sized integers in a \texttt{double}. This may come in handy if you have some small interpreted language to throw off: basic dynamic typing (that links type and value information in a variable) is only a few macros away. 
+
+\section{A better type for sizes and offsets}
+
+This one may be a bit controversial so take it with a pinch of salt. Surprisingly enough, it turns out \href{https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2019/p1428r0.pdf}{we're better off with \textit{signed} sizes and offsets}. So a good replacement for \texttt{size\_t} is \texttt{ptrdiff\_t}. 
+
+\section{Advanced topics}
+
+Here, we list several other general techniques for the sake of exhaustivity. We shall not need them however. The first two could make valuable improvements to your own code, the others begin to be somewhat more arcane. The list is ranked by decreasing level of general usefulness. 
+
+\subsection{Arena-based memory allocation}
+
+In real-life projects, you may quickly encounter ugly pointer soups: data structures that reference each other, shared pointers between several data structures and many other tricky issues that make proper memory deallocation a nightmare or even impossible due to pointer loops. One possibility is to use a garbage collector but most of the time it is quite overkill. Another possibility is to use a custom, arena-based memory allocator. 
+
+An arena is basically a growing set of memory blocks of variable sizes one can allocate from. When your code enters a task that will cause a pointer soup, a new arena is created and memory blocks needed for the task are all allocated from there. 
+
+Now deallocation is trivial, no matter the ugliness of the pointer soup: it suffices to deallocate the set of memory blocks in the arena. Arena-based memory allocation make coding in C almost as pleasant as writing code for a garbage-collected language, yet with more control. 
+
+The main drawback is that all functions that need to allocate memory have to know about the specific arena to use. Concealing its address in a data structure header does help, but a few functions will still need the arena as an additional parameter.
+
+As the complexity of a project grows, which may happen fairly quickly, one has to implement their own memory allocator(s). That may be for performance reasons (that particular data structure may use a simpler and faster allocator than \texttt{malloc(3)}) or, as we have advocated, for writing clear and efficient code for arbitrarily complex memory patterns any application may use. Arena-based memory allocation is discussed everywhere online~\cite{fleury:arena} and a somewhat more portable and less tricky implementation than~\cite{wellons:arena} is extensively covered in~\cite{hanson:1996}. 
+
+\subsection{Exceptions}
+
+Exceptions are designed to handle irrecoverable errors that are expected to happen only rarely. The typical examples are failed memory allocation or division by zero. See ~\cite{hanson:1996} for a comprehensive implementation of simple exceptions in C.
+
+\subsection{Variadic macros}
+
+Variadic macros use the C ellipsis (\texttt{\dots}) to provide a variable number of arguments to a macro. Then the issue becomes that of selecting a different, specialized macro depending on the number of arguments passed to the variadic macro. 
+
+The mechanism is quite tricky however (and equally fun), but we shall not need variadic macros in this course. The curious reader will find a simple example in~\cite{wellons:arena} to construct a polymorphic memory allocator (the \texttt{new} macro). 
+
+\subsection{Stack-less coroutines}
+
+Integer constant labels of \texttt{switch} branches may be automatically constructed from the \texttt{\_\_LINE\_\_} predefined preprocessor symbol, the value of which is the running line number. This technique builds on the socalled Duff's device and allows to execute different code section depending on where the macro is called from.
+
+One application is to build pieces of code that only remotely resemble coroutines (autonomous pieces of code that interact with each other). These pieces of code alas share the same stack as the executable and they are therefore stack-less~\cite{tatham:coroutines} themselves because none of them may use that of the executable for its own purposes. Dennis Ritchie himself once flagged Duff's device as one of the brightest abuse of the C preprocessor. Definitely not for the faint-hearted. Having true coroutines in C (with their own stack) is possible but requires hackish integration with the operating system.

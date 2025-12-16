@@ -1,0 +1,181 @@
+\chapter{Four tales on genericity}
+
+Genericity in the idea that the definition of data structures should be independent from the actual type of items they carry. 
+
+Consider the following sample of an example definition of a venerable singly-linked list:
+\begin{lstlisting}[style=C]
+typedef struct link_int_t {
+    struct link_int_t *next;
+    int               datum;
+} *list_int_t;
+
+list_int_t list_int_prepend( int value, list_int_t list ) {
+    list_int_t new_head_link = malloc( sizeof *new_link );
+    assert( new_head_link && "Allocation failed!" );
+
+    new_head_link->datum = value;
+    new_head_link->next  = list;
+
+    return new_head_link;
+}
+\end{lstlisting}
+
+This definition is \textit{not} generic: the \texttt{int} type of the datum must be explicitly specified all over the place, and if we were to \textit{also} maintain lists of \texttt{double}'s, we would have to rewrite the entire interface and code to provide this functionality. At the very least, that would bloat source code with redundancy (and duplicate bug occurrences!) More importantly:
+
+\textit{The less code you write, the less errors you'll encounter.}
+
+There are a few ways to achieve some form of genericity in C, and not all would equally successfully apply to all data structures. It just turns out lists are the easiest data structure to compare them in depth. 
+
+\section{Genericity with \texttt{void*} pointers}
+
+The \textit{generic} pointer in C has type \texttt{void*}: any address may be safely converted to and from this type. This is the simplest strategy for genericity, as we could just store the addresses of datum items as \texttt{void*} variables like in:
+\lstinputlisting[style=C,linerange={4-4}]{course/demo/generic/pointer/include/list.h}
+\lstinputlisting[style=C,linerange={6-9}]{course/demo/generic/pointer/list.c}
+
+One consequence is that items must be stored elsewhere so they actually have an address. We could store them in an array.\footnote{But this is a static structure! Even when we have dynamic arrays, there is a risk that their addresses change over time. So really, we need some global address for our datum.} But more often than not, one has to resort to a \textit{constructor} like:
+\lstinputlisting[style=C,linerange={10-17}]{course/demo/generic/pointer/main.c}
+
+So in practice, we would write \texttt{list\_t list = list\_prepend( new\_int( 42 ), list\_new() );} to create a list with a single integer. But this amounts to \textit{two} calls to \texttt{malloc()} to create one such link, which is expected to be pretty slow. 
+
+This strategy also suffers from the following drawbacks:
+\begin{itemize}
+\item The blocks for the link and the datum may reside sufficiently far apart in memory, so much so that numerous cache misses would occur (poor memory locality);
+\item Any access to the actual datum value implies pointer dereferencing, which is slow too (yet another jump to some random address in memory);
+\item The immense benefits of type-safety checks performed by the compiler are pretty much completely lost.
+\end{itemize}
+
+The main advantage of the \texttt{void*} strategy is that it is arguably the easiest to implement.
+
+Our finest point is not to discard any strategy \textit{per se}, but to highlight their internals and relative merits. A good interface will almost always blend a few aspects of each of them. There is no silver bullet. 
+
+\section{Genericity with macros (code templating)}\label{gen:templating}
+
+The second strategy would let the \textit{preprocessor} write code for us as soon as we need lists for a specific type of datum. This is often called \textit{code templating}. 
+
+Suppose we have the following \texttt{CAT} macro that concatenates two syntactic tokens to form a third one:
+\lstinputlisting[style=C]{course/demo/generic/template/include/macros.h}
+
+Now let:
+\lstinputlisting[style=C]{course/demo/generic/template/include/generics.h}
+
+These two small files are the core of our templating strategy. They are used to write 
+generic module templates for data structures. 
+
+Observe that the symbols \texttt{T} (the data structure type name) and \texttt{datum\_t} are expected to be defined \textit{before} the file is included: this is enforced up to line 7, otherwise compilation is aborted. Similarly, a trailer would automatically \texttt{\#undef} them so a new cycle of file inclusions may take place. 
+
+Our generic module for lists would now contain two template files:
+\begin{itemize}
+\item One for the header (\texttt{template/list-export-defs.h}), and
+\item Another for the actual implementation (\texttt{template/list-implementation.h}).
+\end{itemize}
+
+Let's start with the header template \texttt{template/list-export-defs.h}:
+\lstinputlisting[style=C]{course/demo/generic/template/include/template/list-export-defs.h}
+Observe the trailer with the \texttt{\#undef}'s. 
+
+Our \texttt{template/list-implementation.h} template would then contain how to write all lists implementations for every datum types we may need in our lists like:
+\lstinputlisting[style=C]{course/demo/generic/template/include/template/list-implementation.h}
+
+And we would end up instantiating the template header to define lists of \texttt{int}'s in
+\texttt{type/list-int.h} like:
+\lstinputlisting[style=C]{course/demo/generic/template/include/type/list-int.h}
+
+And the actual implementation would end up in \texttt{list-int.c} like:
+\lstinputlisting[style=C]{course/demo/generic/template/list-int.c}
+
+Observe that this strategy encompasses the \texttt{void*} strategy upon a simple
+\texttt{typedef void *generic\_ptr\_t;} so \texttt{void*} now has a one-symbol synonym \texttt{generic\_ptr\_t}, that may eventually be used for \texttt{datum\_t}.
+
+Let us stress again that we implement automatic \texttt{\#undef}'s so we may reuse templates on demand. Make sure you understand their interplay. Typically, you want your code to be tested against structures of \textit{two} different datum types to validate your whole code. Preprocessor symbols do have a lifecycle too!
+
+In the general case, we should expect better performance: there is only one call to \texttt{malloc()} per link, so we also have better locality of memory (the datum is in the same block as the link), and we need not constantly dereference pointers. Also, the compiler may still perform relevant type-checking. 
+
+The main drawbacks are not that important:
+\begin{itemize}
+\item Machine code keeps inflating as we have more and more data structures of different datum types (hence it is genericity only at the \textit{syntactic} level);
+\item Legilibity may feel below average (although macro-templating in C is often \textit{much} worse than what we do);
+\item Debugging may be tedious at the beginning since everything happens in the preprocessor (use \texttt{cc list-int.c -Iinclude -E} to skim through the preprocessor output).
+\end{itemize}
+
+The last step, which is not documented here, is to merge the interface and the implementation into a single file. This is rather trivial once an additional preprocessor symbol is used to control macro expansion either of the interface or of the implementation. 
+
+Successful uses of code templating include~\cite{jackson:cc}-\cite{jackson:verstable}. The parts of your code that use code templating are likely to resemble these projects (except for the byzantine parts around the various C standards, which you may safely ignore). 
+
+\section{Genericity through intrusive data structures}
+
+The third strategy is quite surprising at first glance. We previously embedded the datum into our data structure definition. Now we shall do the opposite and \textit{embed a reference to a data structure into our datum}. Our example list of integers would now look like:
+\begin{lstlisting}[style=C]
+typedef struct {
+    link_t   list;
+    int     value;
+} datum_t;
+\end{lstlisting}
+
+While this may resemble the above, the semantics is vastly different: this should be read as
+"\texttt{int value} is part of a list called \texttt{list}". The two other strategies above should have read "this is how we define a list of \texttt{int datum}". 
+
+An appealing consequence is that we are able to make a datum part of \textit{several} (possibly of different types) data structures:
+\lstinputlisting[style=C,linerange={6-10}]{course/demo/generic/intrusive/two-lists.c}
+
+To achieve this, here is all that is needed for a singly-linked list:
+\lstinputlisting[style=C,linerange={7-9}]{course/demo/generic/intrusive/include/list.h}
+
+This strategy is used pervasively in the Linux kernel source code~\cite{frattaroli:kernel:lists}, and it relies on custom features of \texttt{gcc} that are extensions to the C standard. Instead, we strive to comply with the standard and we need another helper structure:
+\lstinputlisting[style=C,linerange={11-15}]{course/demo/generic/intrusive/include/list.h}
+
+Observe that \texttt{link\_t} and \texttt{list\_t} are no longer pointer types.
+
+The \texttt{head} field obviously keeps track of the head of the list, and the \texttt{length} field is updated upon datum insertion into / deletion from the list (so getting the length of the list is in $O(1)$ and we need not traverse it). 
+
+The \texttt{offset} field keeps track of the number of bytes from the start of the datum to a given \texttt{link\_t} field it contains. It would be \texttt{0} for the \texttt{list} field of \texttt{datum\_t} above (which is at the start of the datum), and it would be \texttt{sizeof list\_t} for the \texttt{even} field (because it is after the \texttt{list} field). 
+
+Let us start by a demo of how this is supposed to be used in practice:
+\lstinputlisting[style=C]{course/demo/generic/intrusive/two-lists.c}
+
+How this magic is implemented resorts to a fine combination of functions and function-like macros. Let us start with the functions we need in \texttt{list.c}:
+\lstinputlisting[style=C]{course/demo/generic/intrusive/list.c}
+
+Now \texttt{list.h} is only slightly more involved:
+\lstinputlisting[style=C]{course/demo/generic/intrusive/include/list.h}
+
+Using the \texttt{offsetof} operator is mandatory to get the byte offset from the start of a structure to any of its field (in \texttt{list\_head\_init}). Also observe that we reuse part of the \texttt{void*} strategy to produce the generic visitor \texttt{list\_foreach}. Make sure you understand how \texttt{list\_foreach} handles the \texttt{NULL} end-of-list marker and saving the address of the \texttt{next} link upon iterations, in case the current one should be deleted (like in \texttt{list\_delete}).
+
+The main advantages are as follows:
+\begin{itemize}
+\item An object may easily be part of several data structures (this is close to impossible with code templating);
+\item Locality of memory is also top notch (datum and link information belong to the same block);
+\item The compiler may still do most of its type-checking job.
+\end{itemize}
+
+\section{Genericity through hidden metadata}
+
+Metadata is data about the data. In the case of lists, metadata would be the address of the next link. Hiding the metadata means we shall fiddle with pointers so the user is given an address for the datum value, and the metadata shall be stored \textit{before} it, in a separate structure called a \textit{header}:
+
+\begin{asciiart}
+  \lstinputlisting[linerange={9-17}]{libellul/src/array.c}
+\end{asciiart}
+
+We need a \texttt{LIST\_HEADER} macro to access the start address of the header, as illustrated below:
+\lstinputlisting[style=C]{course/demo/generic/metadata/list.c}
+
+The interface relies on the \texttt{list\_prepend\_link} function and the comma operator to implement \texttt{list\_prepend} as a macro:
+\lstinputlisting[style=C]{course/demo/generic/metadata/include/list.h}
+
+The main advantages are as follows:
+\begin{itemize}
+\item Locality of memory is also top notch (datum and link information belong to the same block);
+\item The compiler may still do most of its type-checking job.
+\end{itemize}
+
+\section{Summary}
+
+Example code for all four strategies is available in the \texttt{course/demo/generic} directory. Play with it! 
+
+The first two strategies are those that are commonly presented when it comes to genericity 
+in C. The \texttt{void*} strategy has many defects that are not compensated by its simplicity. Code templating is mostly OK except it keeps bloating machine code as more different datum types are used in an application. Also, we showed that among the two, only code templating is worth implementing, as it encompasses the \texttt{void*} strategy. 
+
+In practice, recursive data structures like lists and trees are often better accomodated by the intrusive strategy. The hidden metadata strategy better fits arrays of variable size. These two strategies have good performance and keep the compiler do most of its type-checking work. Another important feature of both of them is that they allow for somewhat more legible code for applications and for data structures. 
+
+We also showed how quite a few C idioms and coding techniques actually interact. In particular, you are free to use macros or function-like macros when you design your interfaces. The relevant choice is often guided by the kind of syntactic constructs the user should be able to use. 
+
+Reliable and reusable code is preferably short and simple, as we tried to illustrate. It should be tested and validated by actually \textit{using it} and \textit{building more code} with it.

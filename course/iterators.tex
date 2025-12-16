@@ -1,0 +1,237 @@
+\chapter{Four tales on iteration}\label{chap:iteration}
+
+Very often, we have to execute some code on every element of (a subset of) a data structure. This is called the \textit{visitor} programming pattern. We actually consider the equivalent problem of iterating the addresses of the elements in a data structure. Many algorithms use this capability as a basic building block. 
+
+We first review a few technical solutions to implementing iteration over a data structure, and then we decide for a global strategy. We illustrate all along with iteration over an array for simplicity. 
+
+\section{The \textit{visitor} pattern with function pointers}
+
+The first strategy relies on function pointers (\textit{callbacks}) that are passed as parameters to some \texttt{*\_visit} functions, which encapsulate the whole iterations over the data structure. 
+
+We would need as many \texttt{*\_visit} functions as we would have different types of callbacks times the number of traversals to support. Hence, people often decide for a single callback type that is "generic" enough (for instance, returning an \texttt{int} and accepting a \texttt{void*} parameter). 
+
+\begin{lstlisting}[style=C]
+int array_visit( void *array, int (*callback)(void*,void*), void *parm ) {
+    int ret = 0;
+    for ( ptrdiff_t id = 0 , n = array_length( array ) ; id < n ; id++ ) 
+        ret += callback( (char*)array + id * array_stride( array ), parm );
+    return ret;
+}
+
+/* Pointless example callbacks: */
+int count( void *addr, void *parm )       { return 1; }
+int addr_fprint( void *addr, void *parm ) { return fprintf( (FILE*)parm, "%p ", addr ); }
+\end{lstlisting}
+
+The big issue with this approach is that we get very much constrained by the type of the callback. This often leads to code that is difficult to read because of the layer that has to be added in order to write application code as callbacks of the required type.
+
+\section{Macros that introduce local scope}
+
+The main idea behind the visitor pattern, is that the iteration state information (\texttt{id} and \texttt{n}) is added on the fly around arbitrary code execution. It turns out that we can do the same by extending the local scope with iteration state information right inside a dedicated macro:
+\begin{lstlisting}[style=C]
+#define array_foreach( variable, array )                                                   \
+    for ( ptrdiff_t id = 0 , n = array_length( array ) ;                                   \
+          id < n && variable = (void*)((char*)array + id * array_stride( array )) ; id++ ) 
+\end{lstlisting}
+
+This is much better, as it allows to write quite clean and obvious code right to the point at hand. Also, the iteration state information is allocated on the stack, which frees us from managing it explicitly. 
+
+We would need as many \texttt{*\_foreach} macros as we have different ways of iterating over data structures. Each of them would use nearly as many \texttt{for} constructs as there are variables in the iteration state. While it is possible to write such macros in general, this peculiar coding technique may quickly lead to clumsy code that is hard to write and maintain (think for example of keeping \textit{also} the next link of a list in the iteration state, just in case the user deletes the current link, \textit{etc.})
+
+\section{Traversals: laziness on the stack with external iteration state}
+
+Basically, we should find a cleaner way to the \texttt{foreach} macro approach so it gets more general. The two techniques above share the common feature of manipulating the explicit iteration state information at the interface level. But we sort of want "iteration as a callback": we want to generate the next address \textit{on demand}. This is called \textit{lazy iteration}. 
+
+So we should abstract the iteration state and assume we have some \textit{external} iteration state somewhere that we can reference as \texttt{iter\_state} in one particular function that uses it to provide the next iteration. 
+
+Let \texttt{structure} the address of a data structure, we define a \texttt{traversal\_t} callback function like:
+\begin{lstlisting}[style=C]
+  typedef void *(*traversal_t)( void *structure, void *iter_state );
+\end{lstlisting}
+
+A \texttt{traversal\_t} must handle its whole lifetime on its own. On the first call to a \texttt{traversal\_t}, \texttt{iter\_state} is initialized for iteration on \texttt{structure} and the address of the first element in \texttt{structure} is returned, or \texttt{END\_OF\_TRAVERSAL} if there is none. On subsequent calls, iteration information is used to find the next element in \texttt{structure}, which gets returned (or \texttt{END\_OF\_TRAVERSAL} if we have arrived at the end of the structure). 
+
+Note that we use a special value for \texttt{END\_OF\_TRAVERSAL} because in the general case we might iterate over \texttt{NULL} as well (think of iterating the values of a hashmap). 
+
+Once we have our arbitrary \texttt{iter\_traversal\_t} structure for iteration state information, all we nned is a \texttt{iter\_traversal\_init} constant, so we eventually define a generic \texttt{foreach} macro that instantiates the actual traversal:
+\begin{lstlisting}[style=C]
+#define END_OF_TRAVERSAL ((void*)-1)
+
+#define foreach( variable, traversal, structure )                                       \
+for ( iter_ ## traversal ## _t _iter = iter_ ## traversal ## _init , *iter = &_iter ;   \
+    END_OF_TRAVERSAL != ( foo = traversal ## _next( structure, iter ) ) || ( variable = NULL ) ; )
+\end{lstlisting}
+This implements our visitor pattern using only one generic macro, without being constrained by function pointers or by clumsy dedicated macros. 
+
+Here is an example definition for the obvious \texttt{array\_forward} traversal:
+\begin{lstlisting}[style=C]
+typedef struct {
+  char      *array;
+  ptrdiff_t  id;
+} iter_array_forward_t;
+
+#define iter_array_forward_init { NULL , -1 }
+
+void *array_forward_next( void *array, void *_iter ) {
+  iter_array_forward_t *iter = _iter;
+
+  if ( -1 == iter->id ) {
+    if ( NULL == array ) 
+        return END_OF_TRAVERSAL;
+    iter->array = array;
+  }
+
+  iter->id++;
+
+  if ( iter->id == array_length( iter->array ) && ( iter->id = -1 ) ) 
+      return END_OF_TRAVERSAL;
+
+  return iter->array + iter->id * array_stride( iter->array );
+}
+\end{lstlisting}
+That's all there is to define a new traversal:
+\begin{itemize}
+\item The definition of the \texttt{iter\_traversal\_t} iteration state;
+\item The definition of its initial state \texttt{iter\_traversal\_init};
+\item The definition of the \texttt{traversal\_next} function.
+\end{itemize}
+
+It is our core tool for iterating any data structure the way we want. And we have our \texttt{foreach} macro that works with iteration state information declared on the stack. This allows to write code like: 
+\begin{lstlisting}[style=C]
+typedef struct {
+    int   bar;
+    float baz;
+} foo_t;
+
+void foo_print( foo_t *foo ) { printf( "%d,%g ", foo->bar, foo->baz ); }
+
+foo_t *make_array_of_foos( ptrdiff_t n ) {
+    foo_t *arr = array( n, foo_t );
+        
+    for ( ptrdiff_t i = 0 ; i < n ; i++> ) 
+        arr[ i ] = (foo_t) { 2*i , i };
+
+    return arr;
+}
+
+int main () {
+    foo_t *this;
+    foo_t *foos = make_array_of_foos( 10 );
+
+    foreach( this, array_forward, foos ) 
+        foo_print( this );
+
+    array_delete( &foos );
+}
+\end{lstlisting}
+And we would have very few code to change if we wanted our \texttt{foos} to be in a list or in any other data structure instead. 
+
+The \texttt{foreach} macro above is arguably the closest we can get to the \texttt{for} construct in Python. The major work is designing the \texttt{traversal\_t}, but it is often simple and the rest is boiler plate code. 
+
+\section{Iterators}
+
+Iterators are traversals on the heap. It means that the very same iteration may now be continued across different sections/functions in the code. 
+
+Our interface for iterators boils down to:
+\begin{itemize}
+\item Providing a skeleton constructor \texttt{iterator\_\_}, to be used by dedicated iterator constructors;
+\item Implementing the generic naming convention for calling the dedicated iterator constructor for a given traversal (the \texttt{iterator} macro);
+\item Providing a \texttt{yield} function that updates the next iteration address from an iterator, returning \texttt{1} if it existed, or \texttt{0} otherwise. The iterator is freed and set to \texttt{NULL} upon reaching \texttt{END\_OF\_TRAVERSAL}. 
+\end{itemize}
+
+Very few code is needed to enable lazy iteration on the heap:
+\begin{lstlisting}[style=C]
+typedef struct iterator_t {
+  traversal_t   next;
+  void         *structure;
+  void         *state;
+  ptrdiff_t     count;
+} *iterator_t;
+
+
+iterator_t iterator__( void *structure, ptrdiff_t iter_state_size );
+#define    iterator( traversal, structure ) traversal ## _iterator( structure )
+
+int        yield__( iterator_t *iter_ptr, void **address );
+#define    yield( iter_ptr, variable ) yield__( iter_ptr, (void**)&variable )
+
+#define    iterator_iterations( iterator ) ( iterator ? (iterator)->count : 0 )
+#define    iterator_delete( iter_ptr )       free( *iter_ptr ) , *iter_ptr = NULL
+\end{lstlisting}
+
+And the implementation is equally straightforward:
+\begin{lstlisting}[style=C]
+iterator_t iterator__( void *structure, ptrdiff_t iter_state_size ) {
+    if ( structure ) {
+        iterator_t iter = malloc( sizeof( *iter ) + iter_state_size );
+        assert( iter && "Alloc failed!" );
+
+        iter->structure = structure;
+        iter->state     = iter + 1;
+        iter->next      = NULL;
+        iter->count     = 0;        
+
+        return iter;
+    }
+    return NULL;
+}
+
+int yield__( iterator_t *iter_ptr, void **address ) {
+    if ( iter_ptr && *iter_ptr && (*iter_ptr)->next ) {
+        iterator_t iter = *iter_ptr;
+        void       *ret = iter->next( iter->structure, iter->state );
+
+        if ( END_OF_TRAVERSAL == ret ) 
+            iterator_delete( iter_ptr );
+        
+        iter->count++;
+
+        if ( address )
+            *address = END_OF_TRAVERSAL == ret ? NULL : ret;
+        
+        return 1;
+    }
+    return 0;
+}
+\end{lstlisting}
+
+Now to create an \texttt{array\_forward\_iterator} constructor from the \texttt{array\_forward} traversal:
+\begin{lstlisting}[style=C]
+iterator_t array_forward_iterator( void *array ) {
+    iter_array_forward_t init = iter_array_init;
+    iterator_t iter = iterator( array, sizeof( iter_array_forward_t ) );
+
+    memcpy( iter->state, &init, sizeof init );
+
+    iter->next  = array_forward_next;
+
+    return iter;
+}
+\end{lstlisting}
+
+Eventually, emphasizing on spreading the iteration over different functions, our running example with \texttt{foo\_t} above is now equivalent to:
+\begin{lstlisting}[style=C]
+void print_foos( iterator_t *iter ) {
+    for ( foot_t *next ; yield( &iter, next ) ; )
+        foo_print( next );
+}
+
+int main () {
+    foo_t     *foos = make_array_of_foos( 10 );
+    iterator_t iter = iterator( array_forward, foos );
+
+    print_foos( &iter );
+
+    array_delete( &foos );
+}
+\end{lstlisting}
+
+Iterators are our last and most powerful way of expressing iteration, when it has to be spread across different sections/functions in the code. 
+
+\section{Concluding remarks}
+
+We have not talked about \textit{serialization} yet, which is the ability to read/write an arbitrary data structure on disk. One reason, which is now obvious, is that we had to present this material so you have an idea of how iterating a data structure may be done. The other reason is that we do not plan to build a language: we only ought to output a few numerical values in CSV format out of a benchmark on synthetic (randomly generated) data. 
+
+Traversals and iterators may be used to support \textit{generators} along infinite data structures or combinatorial enumerations (\textit{e.g.} all consecutive even integers, all permutations of an array, \textit{etc.}) In which case one may need to add private auxiliary data to the iterator, quite likely right after the iteration state information. So the modifications, again, would be minor. 
+
+Implementations of combinatorial enumerations are both fast and quite legible using this technique. For instance, many algorithms on graphs are expressed with statements like ``for all permutations of all sets of $k$ neighbors of the current node\dots''---you want generators for cases like these. Not to mention that is it easy to use generators and visitors as bulding blocks for others. Going further, one may want to make \texttt{iterator} a variadic macro so actual iterators and generators may be parameterized (like visiting only a subset of an array).

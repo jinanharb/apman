@@ -1,0 +1,101 @@
+\chapter{Hashtries}\label{chap:hashtries}
+
+Les \emph{hashtries} sont des structures de type \emph{trie} à $N$ branches ($2 \leq N \leq 256$ en général), dans lesquelles chaque niveau utilise une portion de la clé pour sélectionner le sous-arbre suivant. Dans le cas où les clés ne sont pas des chaînes de caractères, on ne dispose pas de “lettres” pour guider la navigation : les hashtries utilisent alors des portions de bits de la valeur de hachage de la clé pour naviguer dans l’arbre.  
+
+Notre implémentation s’inspire de ce principe tout en restant cohérente avec l’interface déjà utilisée pour les tables linéaires dans le projet.  
+
+\section{Choix d’implémentation}
+
+Voici les principaux choix que nous avons faits pour notre implémentation :
+
+\begin{itemize}
+    \item \textbf{Structure récursive de nœuds :}  
+    Chaque nœud peut être soit une feuille, contenant une liste chaînée d’entrées (\texttt{key, value}), soit un nœud interne avec des pointeurs vers ses enfants.  
+    \emph{Avantage :} Cela permet d’allouer de la mémoire uniquement là où des clés existent, et d’éviter les tableaux fixes trop grands comme dans une table linéaire.
+
+    \item \textbf{Slicing du hash pour naviguer dans l’arbre :}  
+    Nous avons défini un nombre fixe de bits par niveau (\texttt{BTREE\_BITS}) et utilisons ces bits successifs du hash de la clé pour sélectionner l’enfant correspondant.  
+    \emph{Avantage :} Une distribution uniforme des clés et un accès déterministe à chaque niveau.
+
+    \item \textbf{Gestion des collisions par liste chaînée dans les feuilles :}  
+    Les clés qui aboutissent sur la même feuille sont stockées dans une liste chaînée.  
+    \emph{Avantage :} Simplifie l’insertion et la suppression sans devoir réorganiser l’arbre entier.
+
+    \item \textbf{Insertion récursive :}  
+    L’insertion descend dans l’arbre en utilisant les slices de bits et ajoute la clé dans la feuille correspondante. Si la clé existe déjà, sa valeur est mise à jour.  
+
+    \item \textbf{Suppression récursive :}  
+    La suppression suit le même parcours que l’insertion et supprime la clé de la liste de la feuille. Si une feuille devient vide, elle est libérée. Cette approche maintient l’arbre compact.
+
+    \item \textbf{API cohérente avec la table linéaire :}  
+    Nous avons conservé les mêmes prototypes de fonctions (\texttt{map\_new}, \texttt{map\_put}, \texttt{map\_get}, \texttt{map\_contains}, \texttt{map\_remove}, \texttt{map\_delete}) pour faciliter l’intégration et les tests.
+
+    \item \textbf{Simplicité et lisibilité :}  
+    Nous n’avons pas implémenté de promotion automatique de feuilles vers nœuds internes pour redistribuer les entrées, afin que le code reste simple et facile à comprendre, tout en étant fonctionnel.
+\end{itemize}
+
+
+
+
+\section{Illustration et exemple}
+
+\subsection*{Schéma simplifié d’un hashtrie}
+
+\begin{verbatim}
+
+           [Root]
+         /    |    \
+       000    001   010 ...
+       /        \
+   [Leaf]       [Leaf]
+  (k1,v1)       (k2,v2)
+\end{verbatim}
+
+Chaque niveau lit un petit nombre de bits du hash pour choisir le sous-arbre. Les collisions sont gérées dans les feuilles par des listes chaînées.
+
+\subsection*{Exemple d’insertion et recherche}
+
+\begin{enumerate}
+    \item Insertion de la clé $k_1$ : le hash de $k_1$ est calculé, les premiers bits sont utilisés pour sélectionner la feuille, et l’entrée $(k_1,v_1)$ est ajoutée à la liste.
+    \item Insertion de la clé $k_2$ : si elle tombe sur la même feuille que $k_1$, elle est ajoutée en tête de la liste de collisions.
+    \item Recherche de $k_1$ : le hash de $k_1$ est recalculé, les bits successifs déterminent le chemin, et la liste de la feuille est parcourue jusqu’à trouver $k_1$.
+    \item Suppression de $k_1$ : même parcours, suppression de l’entrée dans la liste. Si la feuille devient vide, elle est libérée.
+\end{enumerate}
+\subsection{Problème rencontré lors du benchmark du Hashtrie}
+
+Au cours de l'implémentation et des tests de performance de la structure \textit{Hashtrie}, nous avons rencontré un problème majeur lors de l'exécution du benchmark associé. Le programme \texttt{bench\_hashtrie.bench} se compile correctement et se lance normalement, mais il plante systématiquement lors de l'exécution, généralement aux alentours de \texttt{N = 32768}, sans produire le fichier CSV attendu.
+
+\subsubsection*{Symptômes observés}
+\begin{itemize}
+    \item Le benchmark démarre correctement en affichant la taille actuelle : \texttt{Hashtrie N = 32768}.
+    \item Le programme s'interrompt brutalement (segmentation fault ou crash silencieux).
+    \item Aucun message explicite n’est affiché, rendant le débogage difficile.
+\end{itemize}
+
+\subsubsection*{Tentatives de résolution}
+
+Afin de résoudre ce problème, plusieurs approches ont été testées :
+
+\begin{enumerate}
+    \item \textbf{Analyse du code source existant.}  
+    Nous avons inspecté l’implémentation proposée du Hashtrie dans \texttt{hashtrie.h}, en vérifiant notamment les fonctions \texttt{insert}, \texttt{find} et \texttt{remove}, ainsi que la gestion de la récursion et des nœuds. Cette analyse a confirmé que le problème pouvait provenir d’une profondeur de récursion excessive ou d’une gestion incorrecte des nœuds intermédiaires.
+
+    \item \textbf{Modification de \texttt{BTREE\_BITS}.}  
+    Plusieurs valeurs ont été testées (\texttt{3}, \texttt{4}, \texttt{5}) afin de réduire la profondeur de l’arbre et limiter les appels récursifs. Bien que cela modifie la structure interne du Hashtrie, le benchmark continue de planter.
+
+    \item \textbf{Réécriture expérimentale de la fonction \texttt{insert}.}  
+    Une version itérative de l'insertion (\textit{student-written}) a été développée pour remplacer la version récursive. Cette version limite explicitement la profondeur à \texttt{MAX\_LEVELS} et gère la création des nœuds au fur et à mesure. Bien que fonctionnelle sur de petits tests unitaires, elle ne permet pas d'éliminer entièrement le crash pendant le benchmark intensif.
+
+    \item \textbf{Ajout de traces et tests complémentaires.}  
+    Des traces d'exécution (\texttt{printf}) ont été insérées afin de suivre le comportement avant le crash. Des tests supplémentaires ont également été effectués, comme la réinitialisation explicite des pointeurs enfants, et une analyse mémoire préliminaire via \textit{Valgrind}. Malgré cela, l'erreur persistait.
+\end{enumerate}
+
+\subsubsection*{Conclusion}
+Malgré toutes les tentatives (modifications paramétriques, réécriture de la fonction d'insertion, ajout de limites de sécurité et analyses de comportement), il n’a pas été possible de stabiliser entièrement l’exécution du benchmark pour le Hashtrie. Le problème semble lié à une interaction complexe entre l’implémentation de la structure et le framework de benchmarking utilisé dans le projet.
+
+Cette difficulté a été incluse dans notre rapport comme une limite rencontrée durant le développement, en documentant précisément les essais effectués et les efforts entrepris pour tenter de la résoudre.
+
+
+\section{Conclusion}
+
+Cette implémentation de hashtrie combine la flexibilité d’un trie avec la simplicité d’une table linéaire. Les collisions sont gérées efficacement via des listes chaînées, et l’API reste cohérente avec le reste du projet. Le code est simple à lire, à maintenir et permet de comprendre facilement la logique des hashtries.

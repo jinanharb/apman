@@ -1,0 +1,94 @@
+\chapter{Hashtables: Open addressing}\label{chap:hashtables:open}
+\section{Linear Probing Hashtable}\label{hashtables:linear}
+
+We implemented an **open-addressing hashtable** using **linear probing**. In this design, each key is hashed to a home slot. Collisions are resolved by checking the next slots sequentially until either the key is found or an empty slot is reached.
+
+Key points of our implementation:
+
+\begin{itemize}
+    \item \textbf{Table structure:} The table has a fixed size (\texttt{TABLE\_SIZE}) and stores keys and values in separate arrays. An empty slot is marked with \texttt{EMPTY\_KEY}.
+    
+    \item \textbf{Insertion (\texttt{put}):} When inserting a key, the home slot is computed using the hash function. If the slot is occupied, subsequent slots are probed linearly until an empty slot is found. If the key is already present, its value is updated.
+    
+    \item \textbf{Lookup (\texttt{get}/\texttt{contains}):} The home slot is checked first. Linear probing ensures that any colliding key will be found by scanning sequential slots.
+    
+    \item \textbf{Removal (\texttt{remove}):} The slot containing the key is cleared by setting it to \texttt{EMPTY\_KEY}. In our linear variant, we do not use tombstones, so removed slots become truly empty.
+    
+    \item \textbf{Memory management:} Keys and values are dynamically allocated arrays. The \texttt{delete} function frees all memory and sets the map pointer to \texttt{NULL}.
+    
+    \item \textbf{Genericity:} The implementation is type-generic via the \texttt{map.h} interface. Function names are automatically generated for a given key/value type, e.g., \texttt{dict\_new}, \texttt{dict\_put}, \texttt{dict\_get}, etc.
+    
+    \item \textbf{Collision handling:} Linear probing may cause clustering, which can affect performance at high load factors, but for moderate usage it works efficiently.
+\end{itemize}
+
+\subsection{Tests and Results}
+
+Our tests validated the correct behavior of the linear hashtable:
+
+\begin{enumerate}
+    \item Creating a new map and verifying it is empty.
+    \item Inserting single and multiple keys, checking presence with \texttt{contains}.
+    \item Retrieving values with \texttt{get} and verifying correctness.
+    \item Updating existing keys and confirming new values.
+    \item Removing keys and ensuring they are no longer present.
+    \item Re-inserting keys after deletion.
+    \item Deleting the map and confirming memory cleanup.
+\end{enumerate}
+
+All tests passed successfully, confirming that our linear probing hashtable is reliable and behaves as expected.
+
+
+\section{Design rationale}
+All our open-addressing variants share the same generic \texttt{map.h} interface
+(\texttt{new}, \texttt{delete}, \texttt{length}, \texttt{contains}, \texttt{put}, \texttt{remove}).
+What changes between implementations is only the collision and deletion policy
+(linear probing, tombstones, backward-shift deletion, Robin-Hood), not the API.
+This separation let us:
+\begin{itemize}
+\item reuse the same test code for all variants;
+\item plug each variant into the same benchmark driver;
+\item compare their behaviour fairly under identical workloads.
+\end{itemize}
+\section{Example variant: Tombstone reuse}
+In the tombstone-based variant, removing a key does not turn the slot back to
+``empty'', but marks it with a special tombstone value. Lookups keep probing
+across tombstones so probe chains are not broken, and insertions are allowed to
+reuse tombstone slots when they encounter them.
+In practice:
+\begin{itemize}
+\item \textbf{lookup} stops only on a truly empty slot;
+\item \textbf{remove} writes a tombstone marker instead of an empty key;
+\item \textbf{insert} remembers the first tombstone and uses it if the search
+ends on an empty position.
+\end{itemize}
+This keeps the table correct after deletions, at the cost of accumulating
+tombstones if no resizing or compaction is performed.
+\section{Example variant: Backward-shift deletion (no tombstones)}
+Backward-shift deletion removes keys without tombstones. When a key is deleted,
+we scan forward inside the same cluster and shift subsequent entries one slot
+backward as long as this preserves the validity of their probe sequence. The
+cluster shrinks and the first truly empty slot closes the gap.
+The effect is:
+\begin{itemize}
+\item no tombstone markers are needed at all;
+\item lookups see only real keys and empty slots, with compact clusters.
+\end{itemize}
+Deletions become a bit more expensive (they may move several keys), but the
+average probe length is kept under control even after many removes.
+\section{Example variant: Robin-Hood hashing + Backward-shift deletion}
+The Robin-Hood variant reuses the same open-addressing layout and
+backward-shift deletion, but changes how insertions resolve collisions. Each
+key has a ``home'' slot (its hash) and an implicit probe distance. When
+colliding, a key with a larger probe distance is allowed to \emph{steal} the
+better position from a key that is closer to its home slot.
+Concretely:
+\begin{itemize}
+\item insertions compare probe distances and swap keys when the newcomer is
+more ``unlucky'';
+\item deletions still use backward-shift to keep clusters compact;
+\item probe lengths are more even across keys, improving worst-case lookup
+time at higher load factors.
+\end{itemize}
+The Robin-Hood implementation passes the same functional tests as the linear
+variant and is exercised by a dedicated benchmark (\texttt{bench\_robinhood})
+to compare its cost per operation against the simpler strategies.

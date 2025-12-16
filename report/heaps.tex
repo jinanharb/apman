@@ -1,0 +1,20 @@
+\chapter{Heaps, priority queues}\label{chap:heaps}
+
+Given an ordering on its $N$ elements (in the form of a comparison callback), a heap is a tree data structure that ensures $O(1)$ access to the minimum and $O(\log N)$ time insertions and removals. This is the basic data structure for implementing a fast $O(N\log N)$ \texttt{heapsort()} sorting routine or efficient priority queues.
+
+Quite likely, you have been using binary heaps in the past: they fit nicely into an array by means of implicit parenting indexing over a complete binary tree, and you have implemented your own \texttt{heapsort()} routine shortly after. Binary heaps lead to fast \texttt{heapsort()} implementations because they use an array as their underlying data structure. 
+
+Nearly all other heap variants use pointer-based (mostly binary) tree representations: rank-pairing heaps, Fibonacci heaps, \textit{etc.} Calling the allocator and constantly jumping to random addresses in memory hide a pretty high constant in the asymptotic running time of these heaps, hence they lead to slow sorting routines. However, they really shine when implementing priority queues because they exhibit much faster, logarithmic-time higher-level routines for \textit{merging} heaps (\textit{that} makes relevant priority queues), an operation that may prove instrumental in quite a few applications---but not in computing a shortest path in a graph\dots Their implementations are full of neat (sometimes nasty!) recursive tricks. 
+
+Overall, the best bet for a good, versatile starting point is to have a generic binary heap on top of a variable-length array. Only merging two priority queues will be a sub-optimal operation. And you would still get a bunch of optimal, important algorithms on graphs in the end.
+
+Remove these paragraphs when you are done!
+
+\section{Design rationale}
+
+\section{Binary heap interface}
+
+\section{Priority queue interface}
+
+\section{Example variant: Rank-pairing heaps}
+

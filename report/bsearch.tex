@@ -1,0 +1,116 @@
+\chapter{Binary Search}\label{chap:binary:search}
+
+Binary search is a classical technique used on data structures that maintain their elements in sorted order. In our case, we implement a \emph{Binary Search Map}, which stores keys (and optionally values) inside a sorted array, enabling logarithmic-time searches. Insertions and deletions remain in linear time due to array shifting, but the simplicity and cache efficiency of arrays make this implementation surprisingly competitive for mid-sized datasets.
+
+This chapter describes our design choices and the implementation details of our student-written binary search map.
+
+\section{Design rationale}
+
+Our objective was to provide a simple and efficient map structure based on sorted arrays while respecting the Libellul generic map interface (\texttt{T\_MAP\_INTERFACE}, \texttt{MAP\_METHOD(...)}). The main design decisions were:
+
+\begin{itemize}
+    \item \textbf{Sorted array as core representation.}  
+    We store all keys (and values) in ascending order, which allows fast lookups using classic binary search.
+
+    \item \textbf{Dynamic array with amortized growth.}  
+    The structure starts with a small initial capacity (\texttt{INITIAL\_CAPACITY = 16}), and doubles its capacity when full. This strategy is standard and ensures amortized $O(1)$ growth.
+
+    \item \textbf{No duplicates allowed.}  
+    Since this is a map, duplicate keys are forbidden. If an insertion is performed with a key already present, we simply overwrite the value.
+
+    \item \textbf{Binary search for both lookup and insertion point.}  
+    We implemented two internal helpers: one to find an existing key, and another to find the appropriate insertion position in case the key is not found.
+
+    \item \textbf{Cache-friendly layout.}  
+    Arrays ensure tight memory packing and therefore better cache locality compared to pointer-based structures such as trees.
+
+\end{itemize}
+
+\section{Binary Search Map Interface}
+
+Our implementation follows the structure expected by Libellul: a generic \texttt{T} structure (the map instance), and a collection of functions such as \texttt{new}, \texttt{put}, \texttt{get}, and \texttt{remove}.
+
+\subsection{Internal structure}
+
+Each map is represented internally as:
+
+\begin{itemize}
+    \item a \texttt{length} tracking the number of stored keys,
+    \item a \texttt{capacity} controlling memory allocation,
+    \item an array of sorted keys,
+    \item an optional array of corresponding values (absent in set mode).
+\end{itemize}
+
+The structure dynamically resizes when needed, using \texttt{realloc()} to grow while keeping existing keys sorted.
+
+\subsection{Binary search helpers}
+
+We implemented two crucial helper functions:
+
+\begin{description}
+    \item[\texttt{bs\_find}]
+    Performs a classic binary search and returns the index of the key if found, or \texttt{-1} if absent.
+
+    \item[\texttt{bs\_find\_insert\_pos}]
+    Also performs a binary search, but returns the position where the key should be inserted to preserve sorted order.
+\end{description}
+
+These two functions ensure that all map operations maintain the ordering invariant.
+
+\subsection{Insertion}
+
+Insertion proceeds as follows:
+
+\begin{enumerate}
+    \item Check whether the key already exists using \texttt{bs\_find}.  
+          If yes, overwrite its value.
+    \item If the array is full, double its capacity using \texttt{realloc()}.
+    \item Use \texttt{bs\_find\_insert\_pos} to determine the correct location.
+    \item Shift all elements to the right to create a space.
+    \item Insert the new key (and value).
+\end{enumerate}
+
+Although shifting elements is $O(n)$, this is unavoidable for sorted arrays. For moderate sizes, the cost remains low and cache-friendly.
+
+\subsection{Lookup}
+
+Lookup uses binary search and runs in $O(\log n)$ time.  
+If the key is found, the associated value is returned.
+
+\subsection{Removal}
+
+To remove a key:
+
+\begin{enumerate}
+    \item Find the key using \texttt{bs\_find}.  
+          If absent, return \texttt{0}.
+    \item Shift all subsequent elements one position to the left.
+    \item Decrease the logical length.
+\end{enumerate}
+
+As with insertion, this shifting is necessary to keep the array sorted.
+
+\subsection{Memory management}
+
+The \texttt{delete} method frees:
+
+\begin{itemize}
+    \item the keys array,
+    \item the values array (when applicable),
+    \item the map structure itself.
+\end{itemize}
+
+This ensures no memory leaks.
+
+\section{Summary}
+
+This implementation offers:
+
+\begin{itemize}
+    \item Fast $O(\log n)$ lookups thanks to binary search,
+    \item Predictable and compact memory layout,
+    \item Clean integration with the Libellul generic map interface,
+    \item Simple, reliable, and efficient behavior for datasets of small to medium size.
+\end{itemize}
+
+While insertion and deletion remain linear due to shifting, the trade-off in simplicity and performance for typical workloads makes this approach very practical.

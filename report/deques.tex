@@ -1,0 +1,40 @@
+\chapter{Deques}\label{chap:deques}
+
+A deque (double-ended queue~\cite{wp:deque}) is a linear data structure that supports $O(1)$ time insertion and removal at both ends, making it a versatile building block for lists, stacks, and queues. In this project, we implemented a generic intrusive deque using a circular doubly-linked structure.
+
+\section{Design rationale}
+
+Our design relies on three main principles:
+
+\paragraph{Intrusive nodes.} Each user-defined structure embeds a \texttt{link\_t} node, which allows any object to be part of multiple deques simultaneously and avoids additional memory allocation for deque elements.
+
+\paragraph{Sentinel node.} A dedicated sentinel (\texttt{head}) node is always present. This simplifies insertion and deletion operations by eliminating special cases for empty or single-element deques, and preserves a circular doubly-linked structure for constant-time access to both ends.
+
+\paragraph{Offset-based element retrieval.} The \texttt{deque\_init} macro calculates the offset of the embedded link in the user structure, allowing retrieval of the full element from a \texttt{link\_t*}. This makes the deque fully generic and compatible with arbitrary user-defined types.
+
+\section{Deque interface}\label{deques:interface}
+
+The implemented interface provides the following operations:
+
+\begin{itemize}
+    \item Initialization and reset of the deque.
+    \item Insertion at the front (\texttt{push\_front}) and back (\texttt{push\_back}).
+    \item Deletion at the front (\texttt{pop\_front}) and back (\texttt{pop\_back}).
+    \item Access to the first and last elements.
+    \item Retrieval of the current deque length.
+\end{itemize}
+
+All operations execute in constant time ($O(1)$) due to the circular doubly-linked design and the use of a sentinel node.
+
+\section{Testing and results}
+
+We validated the deque implementation using a comprehensive unit test suite:
+
+\paragraph{Empty deque behavior.} Resetting the deque produces a valid empty structure. Accessing the front or back of an empty deque correctly returns \texttt{NULL}. Deletion operations on an uninitialized or empty deque trigger the expected error handling.
+
+\paragraph{Push/pop consistency.} Using randomly generated user nodes, sequences of push-back and pop-back operations were tested. First and last element pointers consistently reflected the correct elements, and the deque length was accurately maintained.
+
+\paragraph{Memory and structural correctness.} The sentinel node always correctly points to the first and last elements, circularity is preserved after each operation, and no invalid memory accesses were observed.
+
+\paragraph{Results.} All tests passed successfully. The deque correctly handles insertion, deletion, and access operations, both in normal and edge cases. Its intrusive, generic, and circular design makes it robust, efficient, and fully compatible with the \texttt{libellul} framework.
+

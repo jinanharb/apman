@@ -1,0 +1,177 @@
+\chapter*{Introduction}
+
+This is a crash course on Advanced C Programming with an emphasis on:
+\begin{enumerate}
+\item Code reusability: you should end up with software that you can actually reuse for other projects;
+\item Testing: your code shall \textit{prove} that it actually does what it should;
+\item Benchmarking: your code should get the most out of the machine it runs onto;
+\item Reporting: you should be able to write clearly because you do not work alone and at least your future self should respect you.
+\end{enumerate}
+
+\section*{This is for real}
+
+Not only are you going to write code, but also code about your code---for testing, benchmarking and reporting purposes. All of these areas of computer engineering are hard, and even harder to get to work in C.\footnote{Interpreted or more recent languages than C like Python or Rust have builtin features in the language to ease these steps considerably.} 
+
+Hence, we have no other choice but to provide you with a bootstrap that already implements the basic requirements and mechanisms we shall need. This bootstrap is entirely open-source so you can study it in every possible detail in case you need to. It only uses professional, standard tools lovingly tweaked for a seemless and comfortable programming experience. You are expected to spend some time understanding how it works. 
+
+This bootstrap consists of several parts:
+\begin{itemize}
+\item A \texttt{Makefile} that controls everything;
+\item An environment for managing debug/release code;
+\item An interface for testing;
+\item A very basic benchmark example, complete with integration into:
+\item A skeleton for your report.
+\end{itemize}
+
+You are expected to find and read additional material by yourself. To get you started, the bibliography contains many references that are just one click away. Those that are not are books that are widely available. List the additional references you used in \texttt{report/biblio.bib}.
+
+\section*{How to ask a question}
+
+Let us assume the following hypotheses:
+\begin{itemize}
+\item Nobody will do your work for free;
+\item It is perfectly normal to get help from others;
+\item In less than 2 years, you'll be on your own.
+\end{itemize}
+
+It follows that the only acceptable way to ask for help is detailed on \href{https://stackoverflow.com/help/how-to-ask}{StackOverflow}:
+\begin{enumerate}
+\item Explain what you want to achieve;
+\item Explain what you tried already.
+\end{enumerate}
+
+Example: \textit{``I do not know how to write a \texttt{Makefile} or \LaTeX{} code, will you give me a course?''} No way. 
+
+Example: \textit{``I have read a few tutorials on writing a \texttt{Gnuplot} script, I tried to change feature X in that of the bootstrap to generate that particular plot I want but I observe the following issue...''} Sure I'll help!
+
+\section*{So\dots What's the plan?}
+
+The plan is to practice, to try, to fail, to try harder and to succeed. You only learn when you struggle. This document and the bootstrap are just here to provide you with guidelines.
+
+Very often at the start of a project in C, one misses data structures that are not built in the language---C only has arrays, other languages also have lists, maps and a few more. It turns out that coding data structures in C not only is pretty useful, but it also considerably improves your understanding of these beautiful mathematical objects and how they behave on the metal. Obviously, this understanding has to be substantiated with tests and benchmarks. 
+
+Your goal in this course is to build as much efficient data structures as you can, with your report serving as a reference for your code. Each data structure should be introduced by a description followed by its interface and the main decisions for its (various) implementation(s).
+
+There are many great books online on data structures, see~\cite{morin:ods} for instance. You will learn the most when you \textit{compare} what (at least!) two different authors say on the same data structure---or how they introduce their distinctive features. In many ways, your report shall resemble these books. Cite your sources of inspiration!
+
+There is a huge number of data structures out there, some of them may be niche or tailored for domain-specific applications (think of spatial data structures, that are used in cartography). We shall target data structures that are expected to find general use. At the very least, you want dynamic arrays, lists, stacks, queues, sets and maps. Each of which may be subject to a particular implementation chosen at compile-time by the user. Of course, you are free to add other useful data structures like heaps, priority queues, graphs or whatever you think is also useful. 
+
+Besides the joy of documenting a great experience, writing a good report is important because our focus is on \textit{implementing} data structures in C, in such a way that you may eventually \textit{forget} how you wrote them:
+
+\textit{``The most profound technologies are those that disappear. They weave themselves into the fabric of everyday life until they are indistinguishable from it.''}---Mark Weiser.
+
+\section*{It all starts with interfaces}
+
+An interface tells the user of some library~\cite{tldp:libs} (external) code how to use it. For example, the \texttt{double cos( double );} prototype is part of the interface for trigonometry in the mathematical library: it tells us that if we want our code to use the code for computing a cosine, then we must pass a \texttt{double} as its only parameter.
+
+In many ways, an interface is akin to a contract between the user and the people who have written the library. User code should not change upon the invention of some hypothetical faster way of computing cosines that will be available in the next release of the mathematical library. Hence, the separation that is implemented by an interface allows library code, which is the actual \textit{implementation} of the interface, to evolve on its own. 
+
+Regarding data structures, interfaces should be reasonably general and coherent. For example, an interface for lists may or may not have a function to reverse them, or it may have it in a future release. But an interface for stacks that cannot pop an element is simply not acceptable.
+
+Coherence means that the same coding rules are enforced uniformly across the library code. As an example, the coding rules of the C Standard Library have that:
+\begin{itemize}
+\item A function that fails returns either a negative value (in case the function returns an integer) or \texttt{NULL} (in case it returns a pointer);
+\item Functions that print something return the number of characters they actually wrote,
+\item \textit{etc.}
+\end{itemize}
+These are pretty sane rules you are expected to also follow.
+
+As for us, we already state our first additional coding rule:
+
+\textit{``Functions that write to some data structure take its address as their first parameter.''} Many such functions will not need actually change the address of the data structure, but those who have to may do so, and the user does not have to bother about that---with the additional benefit that having to explicitly write an ampersand (\texttt{\&}) upon calling the function will act as a reminder that the address \textit{may} have changed.
+
+Our second coding rule builds on the previous one to state that:
+
+\textit{``Deleted data structure variables are reset to \texttt{NULL}.''} Be aware that it may give a false sense of code safety, however it blends nicely with functions preconditions and still provides for safer C code on average.
+
+\section*{Course evaluation}
+
+The person in charge of evaluating your work will only do the following things:
+\begin{enumerate}
+\item Clone your repository;
+\item Issue a \texttt{make} command to compile (code, tests, benchs, report) and run everything (tests and benchmark);
+\item Read and evaluate your report, code and tests.
+\end{enumerate}
+
+The bootstrap that is provided ensures the above will run smoothly. 
+
+Make real sure this is the case with your final repository.
+
+\textit{No debug will be attempted on our side.}
+
+The deadline will be set in class but in any case it will be before starting your next big project.
+
+\subsection*{Data structures (DS)}
+
+Data structures are the basic building blocks to implement abstract data types.
+
+Each data structure you write shall feature:
+\begin{itemize}
+\item Its description (features, theoretical complexity of primitives, \textit{etc.}), interface and implementation notes (genericity, optimizations, \textit{etc.}) in the report;
+\item Good code coverage by tests (serving as in-depth reference).
+\end{itemize}
+
+Here are the tentative number of points you will be rewarded for each data structure:
+\begin{itemize}
+\item Arrays (1), sorted arrays (1),
+\item Deques (2),
+\item Hash-based structures (2/variant),
+\item Tree-based structures (2/variant).
+\end{itemize}
+
+\subsection*{Abstract data types (ADT)}
+
+These are what the user of your library code will use, hence it is the actual code to be called for benchmarking.
+
+An abstract data type may be parameterized to change the default data structure (implementation, variant) that it uses under the hood. Sound defaults must be provided. 
+
+Each abstract data type you write shall feature:
+\begin{itemize}
+\item Its description (interface, available implementations);
+\item Functional tests (serving as documentation).
+\end{itemize}
+
+Ideally, functional tests are code-templated so all possible implementations (and their variants) are easily demonstrated to work as expected. 
+
+Your code is expected to expose the following minimal set of abstract data types:
+\begin{itemize}
+\item Arrays (1), sorted arrays (1);
+\item Lists/stacks/queues (2) from arrays or deques;
+\item Sets/maps (2) from (un/sorted) arrays or tree-/hash-based structures;
+\end{itemize}
+
+\subsection*{Benchmarks}
+
+The only mandatory benchmark in your report is that of the map ADT, that compares the available underlying data structures. 
+
+In many ways, it should be the culmination of your work. A benchmark is supposed to be backed by:
+\begin{itemize}
+\item Overall design rationale and implementation;
+\item Comments (discrepancies with respect to expected theoretical behaviour, tentative explanations, parameter tuning, \textit{etc.})
+\end{itemize}
+
+Of course, you are free to construct as much additional benchmarks as needed to back your claims. 
+
+Benchmarking maps is the hardest (but it's really not unfeasible!): if you end up treating the part on sorting routines, their benchmark will be quite easy to design. 
+
+Now for some flash-forward. As you already know, closed-addressing hashtables use an array of lists. Open-addressing hashtables only use arrays. So the DS/ADT part should start with array- and then deque-related stuff. Since the interface for sets/maps is pretty straightforward stuff, the design and implementation of the benchmark is rather an independent effort (see how nice it is to have ADTs?) Full-featured hashtable variants are expected to account for an important part of your effort. 
+
+\subsection*{Extra credits}
+
+After showing the effect of memory prefetching and limited cache size on the performance of open-addressing maps in your banchmark (now \textit{that} was a hint!), you are rightfully overwhelmed by the void of idleness. 
+
+Why not have a look by yourself at the following suggestions to push your library to the next level? But this needs to be carefully discussed beforehand so please contact a teacher first!
+
+The number of stars is the perceived difficulty level if full-featured Robin-Hood hashtables are considered (***):
+
+\begin{itemize}
+\item Custom memory allocators and arena-based allocation (***);
+\item Catenable strings, ropes (**);
+\item Thread pool for asynchronous parallel computations (*****);
+\item Efficient linear algebra routines (****).
+\end{itemize}
+
+\section*{Course material}
+
+The next chapter lists some useful common idioms in C: a few of them are used extensively in the following chapters that describes four strategies for code reusability in C and how iterators may be leveraged to write much cleaner code. The last chapter is a presentation of the code bootstrap.
+

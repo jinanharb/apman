@@ -1,0 +1,103 @@
+\chapter{Maps and Sets}
+\label{chap:maps}
+
+Maps are associative containers that store key-value pairs $(k, v)$, where each key is unique.
+The main operations are: checking whether a key exists in the map and, if it does, retrieving
+its associated value. In this project, maps are implemented in a **generic way** using code
+templating: the same header can generate different concrete map types depending on a few
+preprocessor definitions.
+
+\section{Template-based map design}
+
+Before including \texttt{libellul/type/map.h}, the user must specify:
+\begin{itemize}
+    \item a tag \texttt{T\_MAP\_TAG}, which defines the concrete type name;
+    \item the key and value types (\texttt{T\_MAP\_KEY} and \texttt{T\_MAP\_VALUE});
+    \item the implementation to use (e.g., linear-probing hashtable);
+    \item a hash function for the keys (\texttt{T\_MAP\_HASHFUN}).
+\end{itemize}
+
+The header expands into a concrete map type and all its associated operations, with full type
+safety and without any \texttt{void*} or function-pointer indirection. This approach allows
+both performance and safety, since the compiler knows the exact types and can inline helper
+functions such as the hash function.
+
+\section{Maps in practice}
+
+Sets are implemented on top of maps by specialising the template to a single element type.
+A set of elements $E$ is represented as a map where keys are in $E$ and the values are
+ignored. This reuses the underlying hashing infrastructure (buckets, collisions, resizing)
+and avoids code duplication.
+
+On top of the basic operations (insert, remove, membership, size), the set abstraction can
+provide higher-level operations such as:
+\begin{itemize}
+    \item union,
+    \item intersection,
+    \item symmetric difference.
+\end{itemize}
+All of these are implemented using map operations and iteration over the underlying buckets.
+
+\section{Map interface}
+
+The map interface, defined in \texttt{libellul/include/libellul/type/map.h}, exposes a
+minimal and uniform API:
+\begin{itemize}
+    \item creation and deletion,
+    \item insertion (\texttt{put} or \texttt{insert}),
+    \item lookup (\texttt{get} or \texttt{contains}),
+    \item removal (\texttt{remove}),
+    \item query for size (\texttt{length}).
+\end{itemize}
+
+The actual behavior is delegated to the chosen backend (linear hashtable, closed hashtable,
+Robin Hood hashing, etc.) selected via a macro. For our benchmarks, we instantiate a map
+\texttt{dict} associating 64-bit integer keys to 64-bit integer values using a
+linear-probing hashtable. A simple hash function on \texttt{uint64\_t} is used.
+
+\section{Set interface}
+
+The set interface is a thin wrapper over the map template. Instead of defining both keys
+and values, the user only specifies the element type via \texttt{T\_SET\_ELEMENT} and the
+corresponding hash function. Including \texttt{libellul/type/set.h} then generates a
+concrete set type with a standard API:
+\begin{itemize}
+    \item creation (\texttt{new}) and deletion (\texttt{delete}),
+    \item insertion (\texttt{insert}) and removal (\texttt{remove}),
+    \item membership test (\texttt{contains}),
+    \item cardinality (\texttt{length}).
+\end{itemize}
+
+\subsection{Example: integer set}
+
+In our project, we instantiate a set of integers \texttt{int\_set} backed by the linear
+hashtable implementation:
+
+\begin{lstlisting}[style=C]
+static inline unsigned int_hash(int key) {
+    return (unsigned)key;
+}
+
+#define T_SET_TAG int_set
+#define T_SET_ELEMENT int
+#define T_IMPL_HASHTABLE_LINEAR
+#define T_MAP_HASHFUN int_hash
+#include <libellul/type/set.h>
+\end{lstlisting}
+
+This generates the type \texttt{int\_set\_t} along with functions such as:
+\texttt{int\_set\_new}, \texttt{int\_set\_delete}, \texttt{int\_set\_insert},
+\texttt{int\_set\_remove}, \texttt{int\_set\_contains}, and \texttt{int\_set\_length}.
+
+A small test (\texttt{test\_props/test\_int\_set.c}) verifies the correctness of this set:
+\begin{itemize}
+    \item a new set is empty,
+    \item insertions and removals update the cardinality correctly,
+    \item membership tests behave as expected,
+    \item deletion resets the pointer to \texttt{NULL}.
+\end{itemize}
+
+The test is integrated into the \texttt{make checks} target alongside other property-based
+tests of the library.
+
+
